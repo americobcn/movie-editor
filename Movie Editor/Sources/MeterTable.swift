@@ -1,12 +1,3 @@
-/*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-Meter value lookup table.
-*/
-
-//import Foundation
-
 struct MeterTable {
 
     // the decibel value of the minimum displayed amplitude

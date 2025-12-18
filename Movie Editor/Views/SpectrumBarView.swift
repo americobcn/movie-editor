@@ -25,11 +25,5 @@ class SpectrumBarView: NSView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
     }
-
-//    override func draw(_ dirtyRect: NSRect) {
-//        super.draw(dirtyRect)
-//
-//        // Drawing code here.
-//    }
     
 }

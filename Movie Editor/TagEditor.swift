@@ -54,7 +54,8 @@ class TagEditor: NSObject {
         if isChanged {
             let savePanel = NSSavePanel()
             savePanel.canCreateDirectories = true
-            savePanel.allowedFileTypes = ["mov", "mp4"]
+            // savePanel.allowedFileTypes = ["mov", "mp4"]
+            savePanel.allowedContentTypes = [UTType.movie, UTType.audiovisualContent, UTType.video]
             savePanel.allowsOtherFileTypes = false
             savePanel.nameFieldStringValue = urlToChange.lastPathComponent
             savePanel.message = "Save a copy of the file with the TAG 'hvc1'."
