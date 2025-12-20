@@ -75,6 +75,7 @@
 		1E0C4CD627786DBF00FD2EC4 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				1ECFABE12467FA14001ADDA2 /* TagEditor.swift */,
 				1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */,
 				1E603D1F257FE50700455EC0 /* TapProcessor.swift */,
 				1E3DD33B258FBD63009FE707 /* MeterTable.swift */,
@@ -128,7 +129,6 @@
 		1EDDCACE245C633D00D88F3B /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
-				1ECFABE12467FA14001ADDA2 /* TagEditor.swift */,
 				1E588747244C5A0A003C2430 /* MainViewController.swift */,
 				1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */,
 			);

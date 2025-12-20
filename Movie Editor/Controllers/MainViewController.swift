@@ -217,7 +217,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 {
                     let time = Float(CMTimeGetSeconds(self.mediaPlayer.currentItem?.currentTime() ?? CMTime.zero))
                     let frame = Int(time * self.videoFrameRate)
-                     let FF = Int(Float(frame).truncatingRemainder(dividingBy: self.videoFrameRate))
+                    let FF = Int(Float(frame).truncatingRemainder(dividingBy: self.videoFrameRate))
                     let seconds = Int(Float(frame - FF) / self.videoFrameRate)
                     let SS = seconds % 60
                     let MM = (seconds % 3600) / 60
@@ -233,7 +233,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         sliderScrubberObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
          { (elapsedTime: CMTime) -> Void in
              
-            guard self.duration != CMTime.invalid else { return }
+            // guard self.duration != CMTime.invalid else { return }
             if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration!)
             {
                 //  sync currentTime with elaspedTime in
@@ -283,17 +283,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     override func awakeFromNib() {
         super.awakeFromNib()
-//       addObserver for load a movie file
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(handleDragNotification(_:)),
                                                name: Notification.Name(rawValue: NOTIF_OPENFILE),
                                                object: nil)
-//       addObserver for replace audio
+
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(handleDragNotification(_:)),
                                                name: Notification.Name(rawValue: NOTIF_REPLACE_AUDIO),
                                                object: nil)
-                
     }
     
     
@@ -422,9 +420,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
                 
         loadedVideoTrackID = videoTrack.trackID
-            
-            if let formatName = CMFormatDescriptionGetExtension(videoFormatDesc, extensionKey: kCMFormatDescriptionExtension_FormatName) {
-                if formatName as! String == "'hev1'" {
+        let mediaSubType = CMFormatDescriptionGetMediaSubType(videoFormatDesc)
+        if let formatName = CMFormatDescriptionGetExtension(videoFormatDesc, extensionKey: kCMFormatDescriptionExtension_FormatName) { //kCMFormatDescriptionExtension_FormatName
+            print("mediaSubType: \(mediaSubType.toString()), formatName: \(formatName as! String)")
+            if formatName as! String == "'hev1'" || mediaSubType.toString() == "hev1"{
                     let alertPanel = NSAlert() //
                     alertPanel.alertStyle = .warning
                     alertPanel.messageText = "Do you want to load a copy with the correct file tag?"
@@ -434,17 +433,24 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     alertPanel.beginSheetModal(for: self.view.window!, completionHandler: { result in
                         if result == .alertFirstButtonReturn {
                             let tagEditor = TagEditor(url: self.url)
-                            let savedURL = tagEditor.changeTagFile()
-                            if savedURL != self.url {
-                                Task {
-                                  await self.loadMovieFromURL(loadUrl: savedURL)
+                            do {
+                                let tagResult = try tagEditor.changeTagFile()
+                                print("Output: \(tagResult.outputURL)")
+                                print("Modified: \(tagResult.wasModified)")
+                                if tagResult.outputURL != self.url {
+                                    Task {
+                                        await self.loadMovieFromURL(loadUrl: tagResult.outputURL)
+                                    }
                                 }
+                            } catch {
+                                print("Error: \(error)")
                             }
-                        } else { return }
+                        } else {
+                            return
+                        }
                     })
                 }
             }
-        
                     
         // MARK: Inspecting Audio Track
         let audioTrack: AVAssetTrack!
@@ -502,6 +508,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     func getVideoTrackDescription(videoFormatDesc: CMFormatDescription) -> String {
+        print("Video Description: \(videoFormatDesc)")
         //Local vars
         var interlacedPregressive = ""
         var videoDescription: String = ""
@@ -520,6 +527,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 interlacedPregressive = "i"
             }
         }
+        
         if let tempDepth = CMFormatDescriptionGetExtension(videoFormatDesc, extensionKey: kCMFormatDescriptionExtension_Depth) { movieDepth = tempDepth }
         
         //Standarizing videoFrameRate (videoTrack.nominalFrameRate)
@@ -564,7 +572,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }            
         }
         
-        videoDescription = String(format: "Video:\n\(movieCodec), \(String(describing: movieDimensions!.width))x\(String(describing: movieDimensions!.height))\(interlacedPregressive)\n\(videoFrameRateString)fps\(movieColorPrimaries), %ibits\n",Int(truncating: movieDepth! as! NSNumber))
+        let duration = String(format: "%.2f", CMTimeGetSeconds(self.duration!))
+        videoDescription = String(format: "Duration: \(duration)s\nVideo:\n\(movieCodec), \(String(describing: movieDimensions!.width))x\(String(describing: movieDimensions!.height))\(interlacedPregressive)\n\(videoFrameRateString)fps\(movieColorPrimaries), %ibits\n",Int(truncating: movieDepth! as! NSNumber)
+        )
+        
         return videoDescription
     }
     
@@ -786,8 +797,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         } catch {
             print("Error in audio/video processing: \(error)")
         }
-                
-                                        
+                                                        
         updateMetersView()
     }
     
@@ -895,7 +905,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     @objc func recalculateMeters() {
             for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 10.0 , height: 130.0 * CGFloat(self.chMetertablePeaks[idx] * self.volumeSlider.floatValue)))  // ERRRORRRRRR
+                view.animator().setFrameSize(NSSize(width: 10.0 , height: 130.0 * CGFloat(self.chMetertablePeaks[idx] * self.volumeSlider.floatValue)))
             }
         
             for (idx, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
@@ -904,7 +914,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
         
     func updateMetersView() {
-        volumeSlider.floatValue = 1.0 // Sometimes when replacing a movie gets to 0.0
+        volumeSlider.floatValue = 1.0
         muteButton.floatValue = 0.0
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
@@ -918,7 +928,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }
         }
     }
-        
+    
     func createSpectrumView() {
         //Setting up Spectrum visualizer
         for i in 0..<spectrumBands {
@@ -940,7 +950,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
             }
             for (_, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-//                print("Updating \(self.mainSpectrumViewMeters.subviews.count)")
                 view.animator().setFrameSize(NSSize(width: 20.0 , height: 0.0))
             }
         }
@@ -962,7 +971,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             } else {
                 mediaPlayer.play()
                 handleTimer(status: .playing)
-
             }
         }
     }
