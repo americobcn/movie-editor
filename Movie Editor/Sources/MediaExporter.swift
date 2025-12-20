@@ -16,16 +16,30 @@ class MediaExporter {
     private var assetWriter: AVAssetWriter?
     private var progressIndicator: NSProgressIndicator
     
+    
     // MARK: - Initialization
     init(progressIndicator: NSProgressIndicator) {
         self.progressIndicator = progressIndicator
     }
     
+    
     // MARK: - Main Export Function
     func exportMedia(from inputAsset: AVAsset, to destURL: URL) async throws -> URL {
+        print("Last path component: \(destURL.lastPathComponent.components(separatedBy: ".").last!)")
+        let fileExtension = destURL.lastPathComponent.components(separatedBy: ".").last!
+        var fileType: AVFileType?
+        switch fileExtension
+        {
+        case "mov":
+            fileType = .mov
+        case "mp4":
+            fileType = .mp4
+        default:
+            throw ExportError.invalidAudioFormat
+        }
         // Setup reader and writer
         let assetReader = try AVAssetReader(asset: inputAsset)
-        let assetWriter = try AVAssetWriter(outputURL: destURL, fileType: .mov)
+        let assetWriter = try AVAssetWriter(outputURL: destURL, fileType: fileType!)
         
         self.assetReader = assetReader
         self.assetWriter = assetWriter
@@ -96,6 +110,7 @@ class MediaExporter {
         }
     }
     
+    
     // MARK: - Video Setup
     private func setupVideoProcessing(
         videoTrack: AVAssetTrack,
@@ -129,6 +144,7 @@ class MediaExporter {
             queue: queue
         )
     }
+    
     
     // MARK: - Audio Setup
     private func setupAudioProcessing(
@@ -236,6 +252,7 @@ class MediaExporter {
         }
     }
     
+    
     // MARK: - Completion
     private func finishWriting(continuation: CheckedContinuation<URL, Error>) {
         guard let assetWriter = assetWriter else {
@@ -335,20 +352,3 @@ enum ExportError: LocalizedError {
         }
     }
 }
-
-// MARK: - Usage Example
-/*
-let exporter = MediaExporter(progressIndicator: myProgressIndicator)
-
-Task {
-    do {
-        let outputURL = try await exporter.exportMedia(
-            from: inputAsset,
-            to: destinationURL
-        )
-        print("Export completed: \(outputURL)")
-    } catch {
-        print("Export failed: \(error.localizedDescription)")
-    }
-}
-*/

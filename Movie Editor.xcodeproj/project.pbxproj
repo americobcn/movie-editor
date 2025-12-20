@@ -10,7 +10,6 @@
 		1E090442259FB5EC004F8026 /* MeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E090441259FB5EC004F8026 /* MeterView.swift */; };
 		1E0CD0A2245611BD00F5E559 /* ACTVerticalSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */; };
 		1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E173257244C9F2800E7EB08 /* PlayerView.swift */; };
-		1E37C9AD27877B460096D782 /* AudioSignalProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E37C9AC27877B460096D782 /* AudioSignalProcessor.swift */; };
 		1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E384B542784A33300FF9243 /* SpectrumBarView.swift */; };
 		1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E3DD33B258FBD63009FE707 /* MeterTable.swift */; };
 		1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4822732455F1230012C4D6 /* ACTSliderCell.swift */; };
@@ -30,7 +29,6 @@
 		1E090441259FB5EC004F8026 /* MeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterView.swift; sourceTree = "<group>"; };
 		1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTVerticalSliderCell.swift; sourceTree = "<group>"; };
 		1E173257244C9F2800E7EB08 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
-		1E37C9AC27877B460096D782 /* AudioSignalProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSignalProcessor.swift; sourceTree = "<group>"; };
 		1E384B542784A33300FF9243 /* SpectrumBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumBarView.swift; sourceTree = "<group>"; };
 		1E3DD33B258FBD63009FE707 /* MeterTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterTable.swift; sourceTree = "<group>"; };
 		1E4822732455F1230012C4D6 /* ACTSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTSliderCell.swift; sourceTree = "<group>"; };
@@ -81,7 +79,6 @@
 				1E603D1F257FE50700455EC0 /* TapProcessor.swift */,
 				1E3DD33B258FBD63009FE707 /* MeterTable.swift */,
 				1EF01414277E47BA004571B9 /* TempiFFT.swift */,
-				1E37C9AC27877B460096D782 /* AudioSignalProcessor.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -222,7 +219,6 @@
 				1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */,
 				1ECFABE22467FA14001ADDA2 /* TagEditor.swift in Sources */,
 				1E090442259FB5EC004F8026 /* MeterView.swift in Sources */,
-				1E37C9AD27877B460096D782 /* AudioSignalProcessor.swift in Sources */,
 				1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */,
 				1EDDCACD245C633700D88F3B /* ExportSettingsPanelController.swift in Sources */,
 			);
@@ -395,7 +391,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = AmericoDev.MoviePlayer;
 				PRODUCT_NAME = "Americo's Movie Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_OBJC_BRIDGING_HEADER = "/Users/americo/dev/Xcode Projects/Movie Editor/Movie Editor/Obective C/Movie Editor-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Obective C/Movie Editor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 4.2;
 			};
@@ -429,7 +425,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = AmericoDev.MoviePlayer;
 				PRODUCT_NAME = "Americo's Movie Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_OBJC_BRIDGING_HEADER = "/Users/americo/dev/Xcode Projects/Movie Editor/Movie Editor/Obective C/Movie Editor-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Obective C/Movie Editor-Bridging-Header.h";
 				SWIFT_VERSION = 4.2;
 			};
 			name = Release;

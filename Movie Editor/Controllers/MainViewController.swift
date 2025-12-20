@@ -15,6 +15,19 @@ private var CURRENT_TIME_KVOCONTEXT = 0
 
 class MainViewController: NSViewController, ExportSettingsPanelControllerDelegate, AudioLevelProviderDelegate {
         
+    enum AssetsError: Error {
+        case noVideoTrack
+        case noAudioTrack
+        
+        var errorDescription: String? {
+            switch self {
+            case .noVideoTrack:
+                return "No video track found in the input asset"
+            case .noAudioTrack:
+                return "No audio track found in the input asset"
+            }
+        }
+    }
     
     struct Spectrum {
         var freqs: [Float] = [Float]()
@@ -78,7 +91,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @objc dynamic var progressValue: Float = 0.0
     
     //MARK: Media descriptors and movie properties
-    private var duration:CMTime = CMTime.zero           //  movie duration
+    private var duration:CMTime? //= CMTime.zero
     private var mediaPreferedRate: Float?
     
     var mediaTimeScale: CMTimeScale?
@@ -219,8 +232,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //  just needs to be fast enough for smooth animation
         sliderScrubberObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
          { (elapsedTime: CMTime) -> Void in
-
-            if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration)
+             
+            guard self.duration != CMTime.invalid else { return }
+            if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration!)
             {
                 //  sync currentTime with elaspedTime in
                 //  case user clicks on PlayBtn here
@@ -311,11 +325,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     }
                     else { duration = CMTime.zero }
                     
-                    let hasValidDuration = duration.isNumeric && duration.value != 0
+                    let hasValidDuration = duration!.isNumeric && duration!.value != 0
                     
                     scrubSlider!.isEnabled = hasValidDuration
                     scrubSlider!.floatValue = hasValidDuration ? Float(CMTimeGetSeconds(mediaPlayer.currentTime())) : 0.001
-                    scrubSlider!.maxValue =  hasValidDuration ? Double(CMTimeGetSeconds(duration)) : 0.001
+                    scrubSlider!.maxValue =  hasValidDuration ? Double(CMTimeGetSeconds(duration!)) : 0.001
                 }
                 
 
@@ -382,7 +396,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         Task {
              try await mediaAsset.loadTracks(withMediaType: AVMediaType.video)
         }
-                
+        
         let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
         
         //Load and Inspecting Video Track
@@ -458,6 +472,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //Associate to player Item to load on viewer
         playerItem = AVPlayerItem(asset: mediaAsset, automaticallyLoadedAssetKeys: assetKeys)
         do {
+            self.duration = try await playerItem?.asset.load(.duration)
             currentAssetTimeScale = try await playerItem?.asset.load(.duration).timescale
         } catch {
             print("Couldn't get Duration")
@@ -635,24 +650,72 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         
         return audioDescription
     }
-    
-    func insertAudio(loadUrl: URL) async {
+
+    func insertOrRemoveAudio(loadUrl: URL?) async {
         //folder where the new composition will be saved
-        print("insertAudio with url: \(loadUrl)")
-        folderToSaveFile = loadUrl.deletingLastPathComponent()
+        let videoRangeMediaDuration = CMTimeRangeMake(start: .zero, duration: self.duration!)
+        var audioAsset: AVURLAsset?
+        var sourceAudioTrack: AVAssetTrack?
         
-        //Get the Audio Track
-        let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
-        let audioAsset = AVURLAsset(url: loadUrl, options:loadOptions)
-        print("audioAsset: \(audioAsset.description)")
-        let insertAtTime = mediaPlayer.currentTime()
-        print("insertaAtTime: \(insertAtTime)")
+        if let loadUrl = loadUrl {
+            print("insertAudio with url: \(String(describing: loadUrl))")
+            folderToSaveFile = loadUrl.deletingLastPathComponent()
+            
+            //Get the Audio Track
+            let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
+            audioAsset = AVURLAsset(url: loadUrl, options:loadOptions)
+            print("audioAsset: \(String(describing: audioAsset?.description))")
+            
+            // Load audio track
+            do {
+                let audioTracks = try await audioAsset?.loadTracks(withMediaType: .audio)
+                sourceAudioTrack = audioTracks?.first
+            } catch {
+                print("Error loading audio tracks: \(error.localizedDescription): \(AssetsError.noAudioTrack) ")
+            }
+            
+            guard let sourceAudioTrack = sourceAudioTrack else {
+                print("No audio track found")
+                return
+            }
+            print("sourceAudioTrack: \(String(describing: sourceAudioTrack))")
+            
+            
+            do {
+                let audioFormatDescriptions = try await sourceAudioTrack.load(.formatDescriptions)
+                print("audioFormatDesc: \(audioFormatDescriptions.debugDescription)")
+                
+                // Extract ASBD from the first format description
+                if let formatDesc = audioFormatDescriptions.first {
+                    self.audioFormatDesc = formatDesc
+                    if let asbdPointer = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) {
+                        self.asbd = asbdPointer
+                        print("ASBD successfully extracted")
+                    } else {
+                        print("Could not get ASBD from format description")
+                    }
+                }
+            } catch {
+                print("Error loading audio format descriptions: \(error.localizedDescription)")
+            }
+            
+            // Determine channel count
+            if let asbd = self.asbd {
+                self.chCount = Int(asbd.pointee.mChannelsPerFrame)
+            } else {
+                print("ASBD is still nil, returning")
+               return
+            }
+        }
         
+                    
         //New Video Composition
         let composition = AVMutableComposition()
-        let compostitionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        let compostitionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
         print("composition: \(composition.description)")
+        
+        let insertAtTime = mediaPlayer.currentTime()
+        print("insertaAtTime: \(insertAtTime)")
         
         do {
             // Load video track
@@ -660,93 +723,75 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             print("Source Video Track loaded: \(String(describing: sourceVideoTrack))")
             
             guard let sourceVideoTrack = sourceVideoTrack,
-                  let compostitionVideoTrack = compostitionVideoTrack else {
+                  let compositionVideoTrack = compositionVideoTrack else {
                 let alert = NSAlert()
                 alert.messageText = "Missing video tracks"
                 alert.runModal()
                 print("Missing video tracks")
                 return
             }
-            
-            let x = CMTimeRangeMake(start: .zero, duration: self.duration)
-            print("Video Time Range x: \(x)")
-            try compostitionVideoTrack.insertTimeRange(x, of: sourceVideoTrack, at: .zero)
-            
-            // Load audio track
-            guard let sourceAudioTrack = try await audioAsset.loadTracks(withMediaType: .audio).first else {
-                print("No audio track found")
-                return
-            }
-            print("sourceAudioTrack: \(String(describing: sourceAudioTrack))")
-            
-            let audioFormatDescriptions = try await sourceAudioTrack.load(.formatDescriptions)
-            print("audioFormatDesc: \(audioFormatDescriptions.debugDescription)")
-            
-            // Extract ASBD from the first format description
-            if let formatDesc = audioFormatDescriptions.first {
-                self.audioFormatDesc = formatDesc
-                if let asbdPointer = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) {
-                    self.asbd = asbdPointer
-                    print("ASBD successfully extracted")
-                } else {
-                    print("Could not get ASBD from format description")
-                }
-            }
-            
-            // Insert the audio track
-            guard let compostitionAudioTrack = compostitionAudioTrack else {
-                print("Composition audio track is nil")
-                return
-            }
-            
-            try compostitionAudioTrack.insertTimeRange(
-                CMTimeRangeMake(start: .zero, duration: self.duration),
-                of: sourceAudioTrack,
-                at: insertAtTime
+                                    
+            try compositionVideoTrack.insertTimeRange(videoRangeMediaDuration,
+                                                      of: sourceVideoTrack,
+                                                      at: .zero
             )
-            print("compostingAudioTrack: \(compostitionAudioTrack.asset!.description)")
+                            
+            // Insert the audio track
+            if sourceAudioTrack != nil {
+                print("Compositing audio track")
+                print("Inserting audio track: \(String(describing: sourceAudioTrack))")
+                let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+                guard let compositionAudioTrack = compositionAudioTrack else {
+                    print("Composition audio track is nil")
+                    return
+                }
+                
+                let audioMediaDuration = try await audioAsset?.load(.duration) //sourceAudioTrack?.load(.timeRange)
+                
+                print("Inserting audio track: \(String(describing: sourceAudioTrack))")
+                print("in composition: \(String(describing: compositionAudioTrack))")
+                print("with duration: \(audioMediaDuration!)")
+                print("at time: \(insertAtTime)")                                
+                
+                // let audioRangeMediaDuration = CMTimeRange(start: .zero, duration: audioMediaDuration)
+                try compositionAudioTrack.insertTimeRange(
+                    videoRangeMediaDuration,
+                    of: sourceAudioTrack!,
+                    at: insertAtTime
+                )
+                print("compostingAudioTrack: \(String(describing: compositionAudioTrack.asset!.description))")
+                
+            }
             
             // Create the new player item FIRST
             let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
             let newPlayerItem = AVPlayerItem(asset: composition, automaticallyLoadedAssetKeys: assetKeys)
             
-            
-            // Determine channel count
-            let channelCount: Int
-            if let asbd = self.asbd {
-                channelCount = Int(asbd.pointee.mChannelsPerFrame)
-                print("Channel count: \(channelCount), PlayerItem: \(newPlayerItem.description)")
-            } else {
-                print("ASBD is still nil, returning")
-               return
-            }
-            
             // Setup processing tap with the new player item BEFORE assigning to self.playerItem
-            self.tapi = TapProcessor()
-            self.tapi.delegate = self
-            await tapi.setupProcessingTap(playerItem: newPlayerItem, channels: channelCount)
-            
-            
+            if sourceAudioTrack != nil {
+                self.tapi = TapProcessor()
+                self.tapi.delegate = self
+                await tapi.setupProcessingTap(playerItem: newPlayerItem, channels: self.chCount)
+            }
+                                                                
             // Now update the instance variables on main thread
             await MainActor.run {
                 self.playerItem = newPlayerItem
-                self.chCount = channelCount
-                self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
+                self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
+                if sourceAudioTrack != nil {
+                    self.movieInfoDisplay.stringValue += "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
+                }
                 self.isMuted = false
             }
-                    
-            //Update meters View
-            await MainActor.run {
-                updateMetersView()
-            }
-            
         } catch {
             print("Error in audio/video processing: \(error)")
         }
+                
+                                        
+        updateMetersView()
     }
     
     
-
     @objc func handleDragNotification(_ notification: Notification) {
         print("Notification: \(notification)")
         if let url:URL = notification.object as? URL {
@@ -759,7 +804,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     break
                 case NOTIF_REPLACE_AUDIO:
                     print("Calling insertAudio")
-                    await insertAudio(loadUrl: self.audioUrl)
+                    //await insertAudio(loadUrl: self.audioUrl)
+                    await insertOrRemoveAudio(loadUrl: self.audioUrl)
                     break
                 default:
                     return
@@ -769,11 +815,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     
-    // func readAndWriteSamples(inputAsset: AVAsset, destURL: URL, completion:@escaping (URL)->Void) async {
+    
     func readAndWriteSamples(inputAsset: AVAsset, destURL: URL) async {
-        
         let exporter = MediaExporter(progressIndicator: progressIndicator)
-        
         Task {
             do {
                 let outputURL = try await exporter.exportMedia(
@@ -785,179 +829,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("Export failed: \(error.localizedDescription)")
             }
         }
-
-        
-/*
-        var audioFinished = false
-        var videoFinished = false
-        
-        //Initialize assetReader and assetWriter
-        do {
-               assetReader = try AVAssetReader(asset: inputAsset)
-            } catch {
-               print("Can't initialize assetReader")
-           }
-           
-        do {
-            assetWriter = try AVAssetWriter(outputURL: destURL, fileType: .mov)
-           } catch {
-               print("Can't initialize assetReader")
-           }
-           
-        //Configuring readerTackOutput for assetReader
-        var videoTrack: AVAssetTrack!
-        do {
-            videoTrack = try await inputAsset.loadTracks(withMediaType: .video).first
-        } catch {
-            print("Error geting Video track")
-        }
-        
-        videoTrackOutput = AVAssetReaderTrackOutput(track: videoTrack!, outputSettings: nil)
-        if assetReader.canAdd(videoTrackOutput) {
-               assetReader.add(videoTrackOutput)
-           } else {
-               fatalError("No se ha podido añadir videoTrackOutput")
-        }
-        
-        //Configuring Audio Track for reading
-        var audioTrack: AVAssetTrack!
-        do {
-            audioTrack = try await inputAsset.loadTracks(withMediaType: .audio).first
-        } catch {
-            print("Error")
-            
-        }
-        
-        // Maybe we don't have audio
-        audioFinished = true
-        if audioTrack != nil {
-            audioFinished = false
-            do {
-                audioFormatDesc = try await audioTrack.load(.formatDescriptions).first
-            } catch {
-                print("Error geting audioFormatDesc")
-            }
-            
-            let asbdLocal = CMAudioFormatDescriptionGetStreamBasicDescription(audioFormatDesc)
-            let mSampleRate = (Float(asbdLocal!.pointee.mSampleRate))
-            let mChannelsPerFrame = (Int(asbdLocal!.pointee.mChannelsPerFrame))
-            var mBitsPerChannel:Int = 0
-            mBitsPerChannel = (Int(asbdLocal!.pointee.mBitsPerChannel))
-            if mBitsPerChannel == 0 {
-                 mBitsPerChannel = 24
-            }
-            
-            let audioSettingsReader:[String:Any] = [AVFormatIDKey: kAudioFormatLinearPCM,
-                                                    AVSampleRateKey: NSNumber(value:mSampleRate),
-                                                    AVNumberOfChannelsKey: NSNumber(value: mChannelsPerFrame),
-                                                    AVLinearPCMBitDepthKey: NSNumber(value: mBitsPerChannel) ,
-                                                    AVLinearPCMIsFloatKey: false,
-                                                    AVLinearPCMIsBigEndianKey: false,
-                                                    AVLinearPCMIsNonInterleaved: false]
-            
-            audioTrackOutput = AVAssetReaderTrackOutput(track: audioTrack!, outputSettings: audioSettingsReader)
-            if assetReader.canAdd(audioTrackOutput) {
-                    assetReader.add(audioTrackOutput)
-                } else {
-                    fatalError("No se ha podido añadir audioTrackOutput")
-            }
-
-            var bitRate: Int!
-            switch asbdLocal!.pointee.mChannelsPerFrame {
-            case 1:
-                bitRate = 160000
-            case 2:
-                bitRate = 320000
-            default:
-                bitRate = 256000
-            }
-            
-//            Configuring writer
-            let audioSettingsWriter:[String:Any] = [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: NSNumber(value: mSampleRate),
-                AVNumberOfChannelsKey: NSNumber(value: mChannelsPerFrame),
-                AVEncoderBitRateKey: bitRate,
-                AVEncoderBitRateStrategyKey: AVAudioBitRateStrategy_Constant]
-            
-            audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettingsWriter)
-            audioInputQueue = DispatchQueue(label: "audioQueue")
-            assetWriter.add(audioInput)
-        }
-        
-
-        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: nil, sourceFormatHint: videoFormatDesc)
-                
-//        Configuring queue for each track
-        let videoInputQueue = DispatchQueue(label: "videoQueue")
-    
-        assetWriter.add(videoInput)
-        
-        assetWriter.startWriting()
-        assetReader.startReading()
-        assetWriter.startSession(atSourceTime: .zero)
-        
-        let closeWriter:()->Void = {
-            if (audioFinished && videoFinished){
-                self.assetWriter?.finishWriting(completionHandler: {
-                    DispatchQueue.main.async {
-                    completion((self.assetWriter?.outputURL)!)
-                        if self.assetWriter.status == .failed {
-                            print("Writing asset failed ☹️ Error: \(String(describing: self.assetWriter.error))")
-                        }
-                        if self.assetWriter.status == .completed {
-                            self.progressIndicator.stopAnimation(self)
-                            self.progressIndicator.alphaValue = 0.0
-                            print("Writing asset succesfully writed ")
-                        }
-                    }
-                })
-                self.assetReader?.cancelReading()
-            }
-        }
-        
-        if audioInput != nil {
-            audioInput.requestMediaDataWhenReady(on: audioInputQueue) {
-             //request data here
-             while(self.audioInput.isReadyForMoreMediaData){
-                let sample = self.audioTrackOutput.copyNextSampleBuffer()
-                    if (sample != nil){
-                     self.audioInput.append(sample!)
-                    }else{
-                         self.audioInput.markAsFinished()
-                         DispatchQueue.main.async {
-                            audioFinished = true
-                            closeWriter()
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-                           
-           videoInput.requestMediaDataWhenReady(on: videoInputQueue) {
-               //request data here
-               while videoInput.isReadyForMoreMediaData {
-                let sample = self.videoTrackOutput.copyNextSampleBuffer()
-                   if (sample != nil){
-                       videoInput.append(sample!)
-                   }else{
-                       videoInput.markAsFinished()
-                       DispatchQueue.main.async {
-                           videoFinished = true
-                           closeWriter()
-                       }
-                       break;
-                   }
-               }
-           }
-*/
     }
     
     
    func exportMovie(toUrl: URL) {
-        //Determining Compatipbility
-    
+    //Determining Compatipbility
     print("Exporting...\(String(describing: exportPreset))")
     guard let composition = mediaPlayer.currentItem?.asset else { return }
     
@@ -994,7 +870,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if CMTimeCompare(newChaseTime, chaseTime) != 0 {
             chaseTime = newChaseTime
             if !isSeekInProgress {
-//                print("seekSmoothlyToTime called --- trySekkToChaseTime")
                 trySeekToChaseTime()
             }
         }
@@ -1002,17 +877,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     private func trySeekToChaseTime() {
         guard mediaPlayer.status == .readyToPlay else { return }
-//        print("trySekkToChaseTime called --- actuallySeekToTime")
         actuallySeekToTime()
     }
     
     private func actuallySeekToTime() {
         isSeekInProgress = true
         let seekTimeInProgress = chaseTime
-        
         mediaPlayer.seek(to: seekTimeInProgress, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             guard let `self` = self else { return }
-//            print("seekTo completion: called --- trySeekToChaseTime")
             if CMTimeCompare(seekTimeInProgress, self.chaseTime) == 0 {
                 self.isSeekInProgress = false
             } else {
@@ -1039,7 +911,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //Adding meterViews
         if (metersView.count == 0 && mainViewMeters.subviews.count == 0) {
             for i in 0..<chCount {
-//                print("Adding \(chCount) views to mainViewMeters")
                 metersView.append(MeterView())
                 let shift = i * 11
                 metersView[i].setFrameOrigin(NSPoint(x: Double(shift), y: 0.0 ))
@@ -1158,47 +1029,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @IBAction func removeAudioFromMovie(_ sender: NSMenuItem) {
             if playerItem != nil {
                 Task {
-                    await removeAudio()
+                    //await removeAudio()
+                    await insertOrRemoveAudio(loadUrl: nil)
                 }
         }
     }
-    
-    func removeAudio() async {
-        //New Video Composition
-        let composition = AVMutableComposition()
-        let compostitionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        print("composition: \(composition.description)")
-        
-        do {
-            // Load video track
-            let sourceVideoTrack = try await mediaPlayer.currentItem?.asset.loadTracks(withMediaType: .video).first
-            print("Source Video Track loaded: \(String(describing: sourceVideoTrack))")
-            
-            guard let sourceVideoTrack = sourceVideoTrack,
-                  let compostitionVideoTrack = compostitionVideoTrack else {
-                print("Missing video tracks")
-                return
-            }
-            
-            let x = CMTimeRangeMake(start: .zero, duration: self.duration)
-            print("Video Time Range x: \(x)")
-            try compostitionVideoTrack.insertTimeRange(x, of: sourceVideoTrack, at: .zero)
-                                
-            // Create the new player item FIRST
-            let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
-            let newPlayerItem = AVPlayerItem(asset: composition, automaticallyLoadedAssetKeys: assetKeys)
-                                
-            // Now update the instance variables on main thread
-            await MainActor.run {
-                self.playerItem = newPlayerItem
-                self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
-            }
-        } catch {
-            print("Error removing processing: \(error)")
-        }
-    }
-    
-    
+
     
     @IBAction func loadMovie(_ sender: NSMenuItem)  {
         let panel = NSOpenPanel()
@@ -1314,3 +1150,162 @@ extension FourCharCode {
     }
 }
 
+
+
+// MARK:// Old functions
+
+/*
+    func insertAudio(loadUrl: URL) async {
+        //folder where the new composition will be saved
+        print("insertAudio with url: \(loadUrl)")
+        folderToSaveFile = loadUrl.deletingLastPathComponent()
+        
+        //Get the Audio Track
+        let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
+        let audioAsset = AVURLAsset(url: loadUrl, options:loadOptions)
+        print("audioAsset: \(audioAsset.description)")
+        
+        // Load audio track
+        var sourceAudioTrack: AVAssetTrack?
+        do {
+            let audioTracks = try await audioAsset.loadTracks(withMediaType: .audio)
+            sourceAudioTrack = audioTracks.first
+        } catch {
+            print("Error loading audio tracks: \(error.localizedDescription): \(AssetsError.noAudioTrack)")
+        }
+        guard let sourceAudioTrack = sourceAudioTrack else {
+            print("No audio track found")
+            return
+        }
+        print("sourceAudioTrack: \(String(describing: sourceAudioTrack))")
+        
+        
+        //New Video Composition
+        let composition = AVMutableComposition()
+        let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        print("composition: \(composition.description)")
+        
+        let insertAtTime = mediaPlayer.currentTime()
+        print("insertaAtTime: \(insertAtTime)")
+        
+        do {
+            // Load video track
+            let sourceVideoTrack = try await mediaPlayer.currentItem?.asset.loadTracks(withMediaType: .video).first
+            print("Source Video Track loaded: \(String(describing: sourceVideoTrack))")
+            
+            guard let sourceVideoTrack = sourceVideoTrack,
+                  let compositionVideoTrack = compositionVideoTrack else {
+                let alert = NSAlert()
+                alert.messageText = "Missing video tracks"
+                alert.runModal()
+                print("Missing video tracks")
+                return
+            }
+            
+            let x = CMTimeRangeMake(start: .zero, duration: self.duration!)
+            print("Video Time Range x: \(x)")
+            try compositionVideoTrack.insertTimeRange(x, of: sourceVideoTrack, at: .zero)
+                                    
+            let audioFormatDescriptions = try await sourceAudioTrack.load(.formatDescriptions)
+            print("audioFormatDesc: \(audioFormatDescriptions.debugDescription)")
+            
+            // Extract ASBD from the first format description
+            if let formatDesc = audioFormatDescriptions.first {
+                self.audioFormatDesc = formatDesc
+                if let asbdPointer = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) {
+                    self.asbd = asbdPointer
+                    print("ASBD successfully extracted")
+                } else {
+                    print("Could not get ASBD from format description")
+                }
+            }
+            
+            // Insert the audio track
+            guard let compositionAudioTrack = compositionAudioTrack else {
+                print("Composition audio track is nil")
+                return
+            }
+            
+            try compositionAudioTrack.insertTimeRange(
+                CMTimeRangeMake(start: .zero, duration: self.duration!),
+                of: sourceAudioTrack,
+                at: insertAtTime
+            )
+            print("compostingAudioTrack: \(compositionAudioTrack.asset!.description)")
+            
+            // Create the new player item FIRST
+            let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
+            let newPlayerItem = AVPlayerItem(asset: composition, automaticallyLoadedAssetKeys: assetKeys)
+            
+            
+            // Determine channel count
+            let channelCount: Int
+            if let asbd = self.asbd {
+                channelCount = Int(asbd.pointee.mChannelsPerFrame)
+                print("Channel count: \(channelCount), PlayerItem: \(newPlayerItem.description)")
+            } else {
+                print("ASBD is still nil, returning")
+               return
+            }
+            
+            // Setup processing tap with the new player item BEFORE assigning to self.playerItem
+            self.tapi = TapProcessor()
+            self.tapi.delegate = self
+            await tapi.setupProcessingTap(playerItem: newPlayerItem, channels: channelCount)
+            
+            
+            // Now update the instance variables on main thread
+            await MainActor.run {
+                self.playerItem = newPlayerItem
+                self.chCount = channelCount
+                self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
+                self.isMuted = false
+            }
+                    
+            //Update meters View
+            await MainActor.run {
+                updateMetersView()
+            }
+            
+        } catch {
+            print("Error in audio/video processing: \(error)")
+        }
+    }
+    
+    func removeAudio() async {
+        //New Video Composition
+        let composition = AVMutableComposition()
+        let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        print("composition: \(composition.description)")
+        
+        do {
+            // Load video track
+            let sourceVideoTrack = try await mediaPlayer.currentItem?.asset.loadTracks(withMediaType: .video).first
+            print("Source Video Track loaded: \(String(describing: sourceVideoTrack))")
+            
+            guard let sourceVideoTrack = sourceVideoTrack,
+                  let compositionVideoTrack = compositionVideoTrack else {
+                print("Missing video tracks")
+                return
+            }
+            
+            let x = CMTimeRangeMake(start: .zero, duration: self.duration!)
+            print("Video Time Range x: \(x)")
+            try compositionVideoTrack.insertTimeRange(x, of: sourceVideoTrack, at: .zero)
+                                
+            // Create the new player item FIRST
+            let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
+            let newPlayerItem = AVPlayerItem(asset: composition, automaticallyLoadedAssetKeys: assetKeys)
+                                
+            // Now update the instance variables on main thread
+            await MainActor.run {
+                self.playerItem = newPlayerItem
+                self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
+            }
+        } catch {
+            print("Error removing processing: \(error)")
+        }
+    }
+*/
+    
