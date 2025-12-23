@@ -69,6 +69,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     private var meterTable = MeterTable()
     var meterTimer: Timer?
     var chCount = 2 // default value
+    var audioSampleRate: Float!
     var chMetertablePeaks: [Float]!
     var chMetertableAvgs: [Float]!
     var spectrumMetertableCoeff: [Float]!
@@ -498,7 +499,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                                             getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
             self.tapi = TapProcessor()
             self.tapi.delegate = self
-            await tapi.setupProcessingTap(playerItem: playerItem!, channels: chCount)
+            await tapi.setupProcessingTap(playerItem: playerItem!, channels: chCount, sampleRate: self.audioSampleRate)
             //Adding channels view
             updateMetersView()
         } else {
@@ -585,8 +586,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         var formatIDDescription: String = ""
         var bitsPerChannel: UInt32 = 0
         var bitsPerChannelDescription: String = ""
-        var sampleRate: Float64!
-        var channels: UInt32!
+        // var sampleRate: Float64!
+        // var channels: UInt32!
         var channelsDescription = ""
         asbd = CMAudioFormatDescriptionGetStreamBasicDescription(audioFormatDesc)
         
@@ -636,10 +637,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if bitsPerChannel != 0 {
             bitsPerChannelDescription = "\(String(describing: bitsPerChannel))bits, "
         }
-        if let tempSampleRate = asbd?.pointee.mSampleRate {sampleRate = tempSampleRate }
+        if let tempSampleRate = asbd?.pointee.mSampleRate {
+            audioSampleRate = Float(tempSampleRate)
+        }
+        
         //Channels
-        if let tempChannels = asbd?.pointee.mChannelsPerFrame {channels = tempChannels }
-        switch channels {
+        if let tempChannels = asbd?.pointee.mChannelsPerFrame {
+            chCount = Int(tempChannels)
+        }
+        switch chCount {
         case 1:
             channelsDescription = "Mono"
             numChannels = 1
@@ -653,11 +659,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             numChannels = 6
             break
         default:
-            channelsDescription  = String("\(channels)")
+            channelsDescription  = String("\(chCount)")
             break
         }
             
-        audioDescription = String(format:"\(formatIDDescription), \(bitsPerChannelDescription)\(channelsDescription),\n%2.0fHz",sampleRate)
+        audioDescription = String(format:"\(formatIDDescription), \(bitsPerChannelDescription)\(channelsDescription),\n%2.0fHz", audioSampleRate)
         
         return audioDescription
     }
@@ -782,7 +788,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if sourceAudioTrack != nil {
                 self.tapi = TapProcessor()
                 self.tapi.delegate = self
-                await tapi.setupProcessingTap(playerItem: newPlayerItem, channels: self.chCount)
+                await tapi.setupProcessingTap(playerItem: newPlayerItem, channels: self.chCount, sampleRate: self.audioSampleRate)
             }
                                                                 
             // Now update the instance variables on main thread
