@@ -29,7 +29,6 @@ let m = fft.magnitudeAtBand(i)
 Note that TempiFFT expects a mono signal (i.e. numChannels == 1) which is ideal for performance.
 */
 
-
 import Foundation
 import Accelerate
 
@@ -87,69 +86,70 @@ import Accelerate
     private var complexBuffer: DSPSplitComplex!
     private var analysisBuffer: UnsafeMutablePointer<Float>!
     
-    /// Instantiate the FFT.
-    /// - Parameter withSize: The length of the sample buffer we'll be analyzing. Must be a power of 2. The resulting ```magnitudes``` are of length ```inSize/2```.
-    /// - Parameter sampleRate: Sampling rate of the provided audio data.
-//    init(withSize inSize:Int, sampleRate inSampleRate: Float) {
-    init(inSize:Int, inSampleRate: Float) {
-        let sizeFloat = Float(inSize)
-        self.sampleRate = inSampleRate
+    // Instantiate the FFT.
+    // - Parameter size: The length of the sample buffer we'll be analyzing. Must be a power of 2. The resulting ```magnitudes``` are of length ```inSize/2```.
+    // - Parameter sampleRate: Sampling rate of the provided audio data.
+    init(size:Int, sampleRate: Float) {
+        let sizeFloat = Float(size)
+        self.sampleRate = sampleRate
         
         // Check if the size is a power of two
-//        let lg2 = logbf(sizeFloat)
-//        assert(remainderf(sizeFloat, powf(2.0, lg2)) == 0, "size must be a power of 2")
+        let lg2 = logbf(sizeFloat)
+        assert(remainderf(sizeFloat, powf(2.0, lg2)) == 0, "size must be a power of 2")
         
-        self.size = inSize
-        self.halfSize = inSize / 2
+        self.size = size
+        self.halfSize = size / 2
         
         // create fft setup
         self.log2Size = Int(log2f(sizeFloat))
         self.fftSetup = vDSP_create_fftsetup(UInt(log2Size), FFTRadix(FFT_RADIX2))!
+            
         // Init the complexBuffer
         let real = UnsafeMutablePointer<Float>.allocate(capacity: self.halfSize) //= DSPSplitComplex(realp: reals, imagp: imags)
         let imaginary = UnsafeMutablePointer<Float>.allocate(capacity: self.halfSize)
         self.complexBuffer = DSPSplitComplex(realp: real, imagp: imaginary)
     }
     
+    
     deinit {
         // destroy the fft setup object
         vDSP_destroy_fftsetup(fftSetup)
-        
+        complexBuffer.realp.deallocate()
+        complexBuffer.imagp.deallocate()
+        analysisBuffer?.deallocate()
     }
     
-    /// Perform a forward FFT on the provided single-channel audio data. When complete, the instance can be queried for information about the analysis or the magnitudes can be accessed directly.
-    /// - Parameter inMonoBuffer: Audio data in mono format
-//    func fftForward(_ inMonoBuffer:[Float]) {  //UnsafeMutablePointer<Float>
+    
+    // Perform a forward FFT on the provided single-channel audio data. When complete, the instance can be queried for information about the analysis or the magnitudes can be accessed directly.
+    // - Parameter inMonoBuffer: Audio data in mono format
+
     func fftForward(_ inMonoBuffer: UnsafePointer<Float>) {
-//        var analysisBuffer = inMonoBuffer
-        
+        analysisBuffer?.deallocate()
         analysisBuffer = UnsafeMutablePointer<Float>.allocate(capacity: self.size)
-        
-        // If we have a window, apply it now. Since 99.9% of the time the window array will be exactly the same, an optimization would be to create it once and cache it, possibly caching it by size.
-        if self.windowType != .none {
             
+        if self.windowType != .none {
+            // Setup Window
             if self.window.isEmpty {
                 self.window = [Float](repeating: 0.0, count: size)
-                
                 switch self.windowType {
                 case .hamming:
+                    print("Hamming window")
                     vDSP_hamm_window(&self.window, UInt(size), 0)
                 case .hanning:
+                    print("Hann window")
                     vDSP_hann_window(&self.window, UInt(size), Int32(vDSP_HANN_NORM))
                 default:
                     break
                 }
             }
-            
             // Apply the window
             vDSP_vmul(inMonoBuffer, 1, self.window, 1, analysisBuffer, 1, vDSP_Length(self.size))
         }
         
-//        self.complexBuffer.realp = UnsafeMutablePointer<Float>.allocate(capacity: self.halfSize) //= DSPSplitComplex(realp: reals, imagp: imags)
-//        self.complexBuffer.imagp = UnsafeMutablePointer<Float>.allocate(capacity: self.halfSize)
+
         analysisBuffer.withMemoryRebound(to: DSPComplex.self, capacity: self.size, { buf in
             vDSP_ctoz(buf, 2, &self.complexBuffer!, 1, vDSP_Length(self.halfSize))
-            buf.deallocate()
+            // buf.deallocate()
         })
                   
         // Perform a forward FFT
@@ -264,6 +264,14 @@ import Accelerate
         return mean
     }
     
+    
+    @inline(__always) private func fastAverage(_ startIdx: Int, _ stopIdx: Int) -> Float {
+            var mean: Float = 0.0
+            vDSP_meanv(magnitudes, startIdx, &mean, vDSP_Length(stopIdx - startIdx))
+            return mean
+    }
+    
+    
     @inline(__always) private func magsInFreqRange(_ lowFreq: Float, _ highFreq: Float) -> [Float] {
         let lowIndex = Int(lowFreq / self.bandwidth)
         var highIndex = Int(highFreq / self.bandwidth)
@@ -309,17 +317,10 @@ import Accelerate
     
     /// Calculate the average magnitude of the frequency band bounded by lowFreq and highFreq, inclusive
     func averageMagnitude(lowFreq: Float, highFreq: Float) -> Float {
+        let lowIndex = Int(lowFreq / bandwidth)
+        let highIndex = Int(highFreq / bandwidth)
+        return fastAverage(lowIndex, min(highIndex + 1, magnitudes.count))
         
-        var curFreq = lowFreq
-        var total: Float = 0
-        var count: Int = 0
-        while curFreq <= highFreq {
-            total += magnitudeAtFrequency(curFreq)
-            curFreq += self.bandwidth
-            count += 1
-        }
-        
-        return total / Float(count)
     }
     
     /// Sum magnitudes across bands bounded by lowFreq and highFreq, inclusive
@@ -345,6 +346,5 @@ import Accelerate
         let magnitude = max(inMagnitude, 0.000000000001)
         return 10 * log10f(magnitude)
     }
-    
-    
+
 }

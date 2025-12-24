@@ -20,133 +20,122 @@ class TapProcessor: NSObject {
     var delegate:AudioLevelProviderDelegate?
     
     //MARK: Variables
-    var numChannels = 0 //setupProcessingTap from mvc set this variable
-    var audioProcessingFormat:  AudioStreamBasicDescription?//UnsafePointer<AudioStreamBasicDescription>?
-    var audioSampleRate: Float = 0.0
-    var allChannelsSpectrum: [Float]!
+    var numChannels:Int = 0
+    var audioSampleRate: Float = 44100.0
+    var maxFrames: Int = 0
+    let stride = vDSP_Stride(1)
+    var peakLevel: Float = 0.0
+    var avgLevel: Float = 0.0
+    var allChannelsSpectrum = [Float](repeating: 0.0, count: 20)
+    weak var playerItem: AVPlayerItem?
     
-    //MARK: Tap and Metering related Variables
     private var tap: MTAudioProcessingTap?  // Unmanaged<MTAudioProcessingTap>?
     private var fft: TempiFFT!
     private var magnitudesBuffer: [Float]!
-    private let minFreq: Float = 20
-    private let maxFreq: Float = 20480
-    private let bandsPerOctave = 2
+    private var minFreq: Float = 20
+    private var maxFreq: Float = 20480
+    private var bandsPerOctave: Int = 2
 
-    var chDecibelsAvg:[Float]! // Array to store the average magnitudes of the buffers
-    var chDecibelsPeaks:[Float]! // Array to store the peaks magnitudes of the buffers
-    var channelsSpectrum: [[Float]]!
+    var chDecibelsAvg:[Float] = []      // Array to store the average magnitudes of the buffers
+    var chDecibelsPeaks:[Float] = []    // Array to store the peaks magnitudes of the buffers
+    var channelsSpectrum = [[Float]]()
     
     
+    //MARK: Initialization
     override init() {
         super.init()
     }
     
-    
-    //MARK: GET AUDIO BUFFERS
-    @MainActor
-    func setupProcessingTap(playerItem: AVPlayerItem, channels: Int, sampleRate: Float) async {
-        // print("setupProcessingTap: tap count: \(tap.debugDescription)")
+    convenience init(playerItem: AVPlayerItem, channels: Int, sampleRate: Float) { //
+        self.init()
+        
         self.numChannels = channels
-        self.chDecibelsAvg = [Float](repeating: 0.0, count: channels) // Array to store the average magnitudes of the buffers
-        self.chDecibelsPeaks = [Float](repeating: 0.0, count: channels) // Array to store the peaks magnitudes of the buffers
         self.audioSampleRate = sampleRate
-        
-        self.fft = TempiFFT(inSize: 4096, inSampleRate: self.audioSampleRate)
-        self.fft.windowType = .hanning
-        
+        self.playerItem = playerItem        
+    }
+    
+    
+    @MainActor
+    func setupProcessingTap() async {
         var callbacks = MTAudioProcessingTapCallbacks(
-        version: kMTAudioProcessingTapCallbacksVersion_0,
-        clientInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
-        init: tapInit,
-        finalize: tapFinalize,
-        prepare: tapPrepare,
-        unprepare: tapUnprepare,
-        process: tapProcess)
+            version: kMTAudioProcessingTapCallbacksVersion_0,
+            //clientInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
+            clientInfo: UnsafeMutableRawPointer(Unmanaged.passRetained(self).toOpaque()),
+            init: tapInit,
+            finalize: tapFinalize,
+            prepare: tapPrepare,
+            unprepare: tapUnprepare,
+            process: tapProcess
+        )
         
         let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap) //kMTAudioProcessingTapCreationFlag_PreEffects
-        
-        print("err: \(err)\n")
-        if err == noErr {
-            print("Tap created succesfully")
-        }
-        
-        // let audioTrack = playerItem!.asset.tracks(withMediaType: AVMediaType.audio).first!
+        print("MTAudioProcessingTapCreate error: \(err)\n")
+                
         do {
-            let audioTrack = try await playerItem.asset.loadTracks(withMediaType: .audio).first
+            let audioTrack = try await playerItem?.asset.loadTracks(withMediaType: .audio).first
             let inputParams = AVMutableAudioMixInputParameters(track: audioTrack)
             inputParams.audioTapProcessor = tap //?.takeUnretainedValue() // tap?.takeRetainedValue()
             let audioMix = AVMutableAudioMix()
             audioMix.inputParameters = [inputParams]
-            playerItem.audioMix = audioMix
+            playerItem?.audioMix = audioMix
             
         } catch {
-            
+            print("Error loading audio track on TapProcessor: \(error)")
         }
     }
     
     //MARK: TAP CALLBACKS
-    
     let tapInit: MTAudioProcessingTapInitCallback = {
         (tap, clientInfo, tapStorageOut) in
-        tapStorageOut.pointee = clientInfo
-                
-        print("init \(tap), clientInfo: \(String(describing: clientInfo)), tapStorage: \(tapStorageOut)\n")
-
-        
+        tapStorageOut.pointee = clientInfo //clientInfo
+        print("TapProcessor: init \(tap)\nclientInfo: \(String(describing: clientInfo))\ntapStorage: \(tapStorageOut)\n")
     }
     
     let tapFinalize: MTAudioProcessingTapFinalizeCallback = {
         (tap) in
-        
-        print("finalize \(tap)\n")
+        // Release the retained reference
+            let _ = Unmanaged<TapProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeRetainedValue()
+        print("TapProcessor: finalize \(tap)\n")
     }
     
     let tapPrepare: MTAudioProcessingTapPrepareCallback = {
-        (tap, itemCount, basicDescription) in
+        (tap, maxFrames, processingFormat) in
+        let selfMediaInput = Unmanaged<TapProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+        selfMediaInput.audioSampleRate = Float(processingFormat.pointee.mSampleRate)
+        selfMediaInput.numChannels = Int(processingFormat.pointee.mChannelsPerFrame)
         
-        print("prepare: \(tap), \(itemCount), \(basicDescription)\n")
-        // let selfMediaInput = Unmanaged<TapProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-        // selfMediaInput.audioSampleRate = Float(basicDescription.pointee.mSampleRate)
+        selfMediaInput.chDecibelsAvg = [Float](repeating: 0.0, count: selfMediaInput.numChannels)
+        selfMediaInput.chDecibelsPeaks = [Float](repeating: 0.0, count: selfMediaInput.numChannels)
         
-        // if selfMediaInput.fft == nil  {
-        //     selfMediaInput.fft = TempiFFT(inSize: 4096, inSampleRate: selfMediaInput.audioSampleRate)
-        //     selfMediaInput.fft.windowType = .hanning
-        // }
+        selfMediaInput.fft = TempiFFT(size: maxFrames, sampleRate: selfMediaInput.audioSampleRate)
+        selfMediaInput.fft.windowType = .hanning        
+        print("TapProcessor: prepare: \(tap), \ncount: \(maxFrames), \ndescription(ASBD):\(processingFormat)\nSampleRate: \(processingFormat.pointee.mSampleRate)\n)")
     }
     
     let tapUnprepare: MTAudioProcessingTapUnprepareCallback = {
         (tap) in
-//        print("unprepare \(tap)\n")
+        print("TapProcessor: unprepare \(tap)\n")
     }
+    
     
     let tapProcess: MTAudioProcessingTapProcessCallback = {
         (tap, numberFrames, flags, bufferListInOut, numberFramesOut, flagsOut) in
         let selfMediaInput = Unmanaged<TapProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-        
         let status = MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut)
         if status != noErr {
             print("Error TAPGetSourceAudio :\(String(describing: status.description))")
             return
-        }
-        // print("tapProcess frames number: \(numberFrames)")
+        }        
         selfMediaInput.processAudioData(audioData: bufferListInOut, framesNumber: numberFrames)
     }
     
     
     @inline(__always) func processAudioData(audioData: UnsafeMutablePointer<AudioBufferList>, framesNumber: Int) {
         //Create array to store the processed values
-        channelsSpectrum = [[Float]]() // Array to store the magnitudes of each frequency band for each channel AKA for eac
-                
-        //Setup processing variables
-        let stride = vDSP_Stride(1)
+        self.channelsSpectrum = [[Float]]() // Array to store the magnitudes of each frequency band for each channel AKA for eac
         let n = vDSP_Length(framesNumber)
-        var peakLevel: Float = 0.0 // Var to store the current peak. Will be appended to chDecibelsPeaks array
-        var avgLevel: Float = 0.0 // Var to store the current average. Will be appended to chDecibelsAvg array
-        allChannelsSpectrum = [Float](repeating: 0.0, count: 20)
-        
-        
-        for (index, buffer) in UnsafeMutableAudioBufferListPointer(audioData).enumerated() { // audioBufferList.enumerated()
+                
+        for (channel, buffer) in UnsafeMutableAudioBufferListPointer(audioData).enumerated() { // audioBufferList.enumerated()
             let floatBuffer = buffer.mData?.bindMemory(to: Float.self, capacity: framesNumber) // framesNumber refers to bufferListInOut, all channels buffer data
             
             //Calculate maximun magnitude of the buffer
@@ -155,19 +144,21 @@ class TapProcessor: NSObject {
                 peakLevel = 0.000_000_01   //-160 dB
             }
             //Convert magnitude to decibels
-            chDecibelsPeaks[index] = 20*log10(peakLevel)  // Peaks ara amplitude levels, so we use a 20 factor
-                        
+            self.chDecibelsPeaks[channel] = TempiFFT.toDB(peakLevel)   //20*log10(peakLevel)  // Peaks ara amplitude levels, so we use a 20 factor
+            
             //Calculate RMS of the buffer
             vDSP_rmsqv(floatBuffer!, stride, &avgLevel, n) // numElements / UInt(channelsCount)
             if avgLevel < 0.000_000_01 {
                 avgLevel = 0.000_000_01  //-160 dB
             }
             //Convert RMS to decibels
-            chDecibelsAvg[index] = 10*log10(avgLevel) // Averages are rms, power levels, so we use a 10 factor
+            self.chDecibelsAvg[channel] = TempiFFT.toDB(avgLevel)// 10*log10(avgLevel) // Averages are rms, power levels, so we use a 10 factor
+            
+            // Calculate FFT
             self.fft.fftForward(floatBuffer!)
             
             // Map FFT data to logical bands. This gives 2 bands per octave across 10 octaves = 20 bands.
-            fft.calculateLogarithmicBands(minFrequency: self.minFreq, maxFrequency: self.maxFreq , bandsPerOctave: self.bandsPerOctave)
+            self.fft.calculateLogarithmicBands(minFrequency: self.minFreq, maxFrequency: self.maxFreq , bandsPerOctave: self.bandsPerOctave)
             
             // Process some data
             self.magnitudesBuffer = [Float](repeating: 0.0, count: fft.numberOfBands)
@@ -175,26 +166,28 @@ class TapProcessor: NSObject {
                 magnitudesBuffer[i] = scaleBetween(unscaledNum: TempiFFT.toDB(fft.magnitudeAtBand(i)), minAllowed: -120.0, maxAllowed: 0.0, min: -120.0, max: 55.0)
 
             }
-            channelsSpectrum.append(magnitudesBuffer)
+            self.channelsSpectrum.append(magnitudesBuffer)
         }
                 
-        
-        for channel in channelsSpectrum {
-            for index in 0..<fft.numberOfBands {
-                allChannelsSpectrum[index] += channel[index]/Float(numChannels)
+        for channel in self.channelsSpectrum {
+            for band in 0..<fft.numberOfBands {
+                allChannelsSpectrum[band] += channel[band]/Float(numChannels)
             }
         }
 
-        self.delegate?.levelsDidChange(peaks: chDecibelsPeaks, averages: chDecibelsAvg, spectrum: channelsSpectrum, bandsCount: fft.numberOfBands)
-           
+        self.delegate?.levelsDidChange(peaks: self.chDecibelsPeaks, averages: self.chDecibelsAvg, spectrum: self.channelsSpectrum, bandsCount: self.fft.numberOfBands)
+        
     }
         
     func scaleBetween(unscaledNum: Float, minAllowed: Float, maxAllowed: Float, min: Float, max: Float) -> Float {
       return (maxAllowed - minAllowed) * (unscaledNum - min) / (max - min) + minAllowed;
     }
     
-    deinit {
-        // self.fft = nil
-        // self.tap?.release()
-    }
+    
+    //MARK: deinit
+    // deinit {
+    //     print("TapProcesor deinit() called")
+    //     // self.fft = nil
+    //     // self.tap?.release()
+    // }
 }
