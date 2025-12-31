@@ -168,7 +168,7 @@
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="543" y="326" width="896" height="731"/>
             <rect key="screenRect" x="0.0" y="0.0" width="1920" height="1055"/>
-            <view key="contentView" wantsLayer="YES" id="EiT-Mj-1SZ" customClass="MainMetersView" customModule="Americo_s_Movie_Player" customModuleProvider="target">
+            <view key="contentView" wantsLayer="YES" id="EiT-Mj-1SZ">
                 <rect key="frame" x="0.0" y="0.0" width="896" height="731"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>

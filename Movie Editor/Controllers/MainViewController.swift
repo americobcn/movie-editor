@@ -13,7 +13,7 @@ import AppKit
 private var VIEW_CONTROLLER_KVOCONTEXT = 0
 private var CURRENT_TIME_KVOCONTEXT = 0
 
-class MainViewController: NSViewController, ExportSettingsPanelControllerDelegate, AudioLevelProviderDelegate {
+class MainViewController: NSViewController, ExportSettingsPanelControllerDelegate,  AudioSpectrumProviderDelegate { //AudioLevelProviderDelegate,
         
     enum AssetsError: Error {
         case noVideoTrack
@@ -29,10 +29,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
-    struct Spectrum {
-        var freqs: [Float] = [Float]()
-        var values: [Float] = [Float]()
-    }
     
     //MARK: Outlets Main View
     @IBOutlet weak var playerView: NSView!
@@ -65,16 +61,20 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     //MARK: Tap and Metering related Variables
     var metersView = [MeterView]()
     var spectrumMeters = [SpectrumBarView]()
-    var tapi:TapProcessor!
+    var spectrumBarWidth: CGFloat = 0.0
+    var spectrumBarHeight: [CGFloat] = []
+    var volumeBarHeight: [CGFloat] = []
+    // var tapi:TapProcessor!
+    var audioTap: AudioTapProcessor!
     private var meterTable = MeterTable()
     var meterTimer: Timer?
-    var chCount = 2 // default value
+    
     var audioSampleRate: Float!
     var chMetertablePeaks: [Float]!
     var chMetertableAvgs: [Float]!
     var spectrumMetertableCoeff: [Float]!
-    var spectrumBands = 20 // default value
-    var metertableSpectrum: [Float]!
+    var spectrumBands: Int = 30 // default value
+    // var metertableSpectrum: [Float]!
     
     
     //MARK: Asset related vars
@@ -104,7 +104,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var fileType: AVMediaType!
     var videoFormatDesc: CMFormatDescription!
     var audioFormatDesc: CMFormatDescription!
-    var asbd: UnsafePointer<AudioStreamBasicDescription>?                 //Audio Strem Basic Description
+    var asbd: UnsafePointer<AudioStreamBasicDescription>?
     var currentAssetTimeScale: CMTimeScale!
     
     var movieDimensions: CMVideoDimensions?
@@ -113,7 +113,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var movieDepth: CFPropertyList?
     var movieCodec: String = ""
     var videoFrameRate: Float = 0.0
-    var numChannels: Int = 0
+    var chCount: Int = 2
     
     enum playerStatus {
     case playing, stopped
@@ -270,8 +270,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         
         chMetertablePeaks = [Float](repeating: 0.0, count: chCount)
         chMetertableAvgs = [Float](repeating: 0.0, count: chCount)
-        metertableSpectrum = [Float](repeating: 0.0, count: spectrumBands) // spectrumBands default value
+        // metertableSpectrum = [Float](repeating: 0.0, count: spectrumBands)
         spectrumMetertableCoeff = [Float](repeating: 0.0, count: spectrumBands)
+        spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
+        volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
         createSpectrumView()
     }
     
@@ -365,7 +367,34 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
 
     
-    //MARK: Delegate function
+    //MARK: Delegate functions                          NEED TO REVISIT, THIS IS NOT NECESARY
+    func spectrumDidChange(spectrum: [Float], peaks: [Float]){
+        //print("spectrumDidChange: \(spectrum)")
+        for index in 0..<self.spectrumBands {
+            self.spectrumBarHeight[index] = barHeight(magnitudeDB: spectrum[index])
+        }
+        for index in 0..<self.chCount {
+            self.volumeBarHeight[index] = barHeight(magnitudeDB: peaks[index])
+            // print("\(index): \(volumeBarHeight[index])")
+        }
+    }
+    
+    func barHeight(magnitudeDB: Float, minDB: Float = -80.0, maxDB: Float = 0.0, maxHeight: Float = 130.0) -> CGFloat {
+        let clamped = min(max(magnitudeDB, minDB), maxDB)
+        let normalized = (clamped - minDB) / (maxDB - minDB)
+        
+        let gamma: Float = 0.7
+        let curved = pow(normalized, gamma)
+        
+        return CGFloat(curved * maxHeight)
+        
+    }
+    
+    func smooth(current: Float, target: Float, decay: Float = 0.85) -> Float {
+        return max(target, current * decay)
+    }
+
+    
     func levelsDidChange(peaks:[Float], averages:[Float], spectrum: [[Float]], bandsCount: Int) {
         //Updating coefficients for drawing metersView and spectrumViews
         for (index, peak) in peaks.enumerated() {
@@ -499,9 +528,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if hasAudioTrack {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" +
                                             getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
-            self.tapi = TapProcessor(playerItem: playerItem!, channels: self.numChannels, sampleRate: self.audioSampleRate)
-            self.tapi.delegate = self
-            await tapi.setupProcessingTap()
+            //self.tapi = TapProcessor(playerItem: playerItem!) //, channels: self.numChannels, sampleRate: self.audioSampleRate
+            //self.tapi.delegate = self
+            //await tapi.setupProcessingTap()
+            self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
+            do {
+                try await self.audioTap.attachTap(to: self.playerItem!, processor: self.audioTap)
+            } catch {
+                print("Error: Can't attach tap")
+            }
+            self.audioTap.delegate = self
             //Adding channels view
             updateMetersView()
         } else {
@@ -650,15 +686,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         switch chCount {
         case 1:
             channelsDescription = "Mono"
-            numChannels = 1
+            chCount = 1
             break
         case 2:
             channelsDescription = "Stereo"
-            numChannels = 2
+            chCount = 2
             break
         case 6:
             channelsDescription = "5.1"
-            numChannels = 6
+            chCount = 6
             break
         default:
             channelsDescription  = String("\(chCount)")
@@ -790,9 +826,27 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             
             // Setup processing tap with the new player item BEFORE assigning to self.playerItem
             if sourceAudioTrack != nil {
-                self.tapi = TapProcessor(playerItem: newPlayerItem, channels: self.numChannels, sampleRate: self.audioSampleRate)
-                self.tapi.delegate = self
-                await tapi.setupProcessingTap()
+                // self.tapi = TapProcessor(playerItem: newPlayerItem) // , channels: self.numChannels, sampleRate: self.audioSampleRate
+                // self.tapi.delegate = self
+                // await tapi.setupProcessingTap()
+                self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
+                self.audioTap.delegate = self
+                do {
+                    try await self.audioTap.attachTap(to: newPlayerItem, processor: self.audioTap)
+                } catch {
+                    print("Error: Can't attach tap")
+                }
+                
+                let centers = logBandCenters(
+                    bandCount: self.spectrumBands,
+                    minFrequency: 20,
+                    maxFrequency: 24_000
+                )
+                var frequencies: [String] = []
+                for c in centers {
+                    frequencies.append(formatFrequency( c))
+                }
+                // print("Centers: \(frequencies)")
             }
                                                                 
             // Now update the instance variables on main thread
@@ -915,11 +969,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     @objc func recalculateMeters() {
             for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 10.0 , height: 130.0 * CGFloat(self.chMetertablePeaks[idx] * self.volumeSlider.floatValue)))
+                view.animator().setFrameSize(NSSize(width: 10.0 , height: self.volumeBarHeight[idx])) //130.0 * CGFloat(self.chMetertablePeaks[idx] * self.volumeSlider.floatValue)
             }
         
             for (idx, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 20.0 , height: 130.0 * CGFloat(self.spectrumMetertableCoeff[idx])))
+                view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx])) // 130.0 * CGFloat(self.spectrumMetertableCoeff[idx])
+                // view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx]))
             }
     }
         
@@ -941,18 +996,24 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     func createSpectrumView() {
         //Setting up Spectrum visualizer
+        let bounds = mainSpectrumViewMeters.bounds
+        self.spectrumBarWidth = bounds.width / CGFloat(spectrumBands)
+        // print("Spectrum Bar Width: \(self.spectrumBarWidth), mainSpectrumViewMeters.bounds.width: \(bounds.width), spectrumbands: \(spectrumBands)")
+        
         for i in 0..<spectrumBands {
-            let shift = i * 20
-            spectrumMeters.append(SpectrumBarView())
-            spectrumMeters[i].setFrameOrigin(NSPoint(x: 0.0 + Double(shift), y: 0.0))
-            mainSpectrumViewMeters.addSubview(spectrumMeters[i])
+            let xshift = CGFloat(i) * self.spectrumBarWidth
+            let barView = SpectrumBarView()
+            barView.setFrameOrigin(NSPoint(x: Double(xshift), y: 0.0))
+            mainSpectrumViewMeters.addSubview(barView)
+            // print("Spectrum Bar Origin: \(xshift)")
         }
     }
-        
+    
+    
     func handleTimer(status: playerStatus) {
         switch status {
         case .playing:
-            meterTimer = Timer.scheduledTimer(timeInterval: 0.010/Double(videoFrameRate), target: self, selector: #selector(recalculateMeters), userInfo: nil, repeats: true)
+            meterTimer = Timer.scheduledTimer(timeInterval: 1.0/Double(videoFrameRate), target: self, selector: #selector(recalculateMeters), userInfo: nil, repeats: true)
         case .stopped:
             meterTimer?.invalidate()
             //While in pause, set the meters to 0.0
@@ -960,12 +1021,20 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
             }
             for (_, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 20.0 , height: 0.0))
+                view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
             }
         }
     }
+    
+    func getSpectrumBarHeight(mag: Float, minDB: Float, maxDB: Float) -> Float {
+        let norm = (mag - minDB) / (maxDB - minDB)
+        print("Norm: \(norm - 1)")
+      return (norm - 1.0) // * 2.0
+    }
 
-//  MARK: Action Methods for Player Transport
+
+    
+    //MARK: Action Methods for Player Transport
         
     @IBAction func playPauseVideo(_ sender: NSButton) {
         if playerItem != nil {
@@ -985,7 +1054,57 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
+    //MARK: Frequency related functions
     
+    func logBandEdges(
+        bandCount: Int,
+        minFrequency: Float,
+        maxFrequency: Float
+    ) -> [(low: Float, high: Float)] {
+
+        let logMin = log10(minFrequency)
+        let logMax = log10(maxFrequency)
+        let step = (logMax - logMin) / Float(bandCount)
+
+        return (0..<bandCount).map { i in
+            let low = pow(10, logMin + step * Float(i))
+            let high = pow(10, logMin + step * Float(i + 1))
+            return (low, high)
+        }
+    }
+
+    
+    
+    func logBandCenters(
+        bandCount: Int,
+        minFrequency: Float,
+        maxFrequency: Float
+    ) -> [Float] {
+
+        let edges = logBandEdges(
+            bandCount: bandCount,
+            minFrequency: minFrequency,
+            maxFrequency: maxFrequency
+        )
+
+        return edges.map { band in
+            sqrt(band.low * band.high)
+        }
+    }
+
+    
+    
+    func formatFrequency(_ hz: Float) -> String {
+        if hz >= 1000 {
+            return String(format: "%.1fkHz", hz / 1000)
+        } else {
+            return String(format: "%.0fHz", hz)
+        }
+    }
+
+    
+        
+    //MARK: Action methods
     @IBAction func seekForeward(_ sender: NSButton) {
         if playerItem != nil {
             if mediaPlayer.rate != 0.0 { mediaPlayer.pause() }

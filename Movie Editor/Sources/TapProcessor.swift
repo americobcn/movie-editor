@@ -20,7 +20,7 @@ class TapProcessor: NSObject {
     var delegate:AudioLevelProviderDelegate?
     
     //MARK: Variables
-    var numChannels:Int = 0
+    var numChannels:Int = 1
     var audioSampleRate: Float = 44100.0
     var maxFrames: Int = 0
     let stride = vDSP_Stride(1)
@@ -30,7 +30,8 @@ class TapProcessor: NSObject {
     weak var playerItem: AVPlayerItem?
     
     private var tap: MTAudioProcessingTap?  // Unmanaged<MTAudioProcessingTap>?
-    private var fft: TempiFFT!
+    // private var fft: TempiFFT!
+    private var fft: FFTAnalyzer!
     private var magnitudesBuffer: [Float]!
     private var minFreq: Float = 20
     private var maxFreq: Float = 20480
@@ -46,12 +47,12 @@ class TapProcessor: NSObject {
         super.init()
     }
     
-    convenience init(playerItem: AVPlayerItem, channels: Int, sampleRate: Float) { //
+    convenience init(playerItem: AVPlayerItem) { //, channels: Int, sampleRate: Float
         self.init()
         
-        self.numChannels = channels
-        self.audioSampleRate = sampleRate
-        self.playerItem = playerItem        
+        // self.numChannels = channels
+        // self.audioSampleRate = sampleRate
+        self.playerItem = playerItem
     }
     
     
@@ -107,8 +108,9 @@ class TapProcessor: NSObject {
         selfMediaInput.chDecibelsAvg = [Float](repeating: 0.0, count: selfMediaInput.numChannels)
         selfMediaInput.chDecibelsPeaks = [Float](repeating: 0.0, count: selfMediaInput.numChannels)
         
-        selfMediaInput.fft = TempiFFT(size: maxFrames, sampleRate: selfMediaInput.audioSampleRate)
-        selfMediaInput.fft.windowType = .hanning        
+        // selfMediaInput.fft = TempiFFT(size: maxFrames, sampleRate: selfMediaInput.audioSampleRate)
+        selfMediaInput.fft = FFTAnalyzer(fftSize: 2048, sampleRate: selfMediaInput.audioSampleRate, chCount: selfMediaInput.numChannels)
+        // selfMediaInput.fft.windowType = .hanning
         print("TapProcessor: prepare: \(tap), \ncount: \(maxFrames), \ndescription(ASBD):\(processingFormat)\nSampleRate: \(processingFormat.pointee.mSampleRate)\n)")
     }
     
@@ -126,7 +128,7 @@ class TapProcessor: NSObject {
             print("Error TAPGetSourceAudio :\(String(describing: status.description))")
             return
         }        
-        selfMediaInput.processAudioData(audioData: bufferListInOut, framesNumber: numberFrames)
+        selfMediaInput.processAudioData(audioData: bufferListInOut, framesNumber: Int(numberFramesOut.pointee))
     }
     
     
@@ -134,7 +136,7 @@ class TapProcessor: NSObject {
         //Create array to store the processed values
         self.channelsSpectrum = [[Float]]() // Array to store the magnitudes of each frequency band for each channel AKA for eac
         let n = vDSP_Length(framesNumber)
-                
+        
         for (channel, buffer) in UnsafeMutableAudioBufferListPointer(audioData).enumerated() { // audioBufferList.enumerated()
             let floatBuffer = buffer.mData?.bindMemory(to: Float.self, capacity: framesNumber) // framesNumber refers to bufferListInOut, all channels buffer data
             
@@ -155,33 +157,35 @@ class TapProcessor: NSObject {
             self.chDecibelsAvg[channel] = TempiFFT.toDB(avgLevel)// 10*log10(avgLevel) // Averages are rms, power levels, so we use a 10 factor
             
             // Calculate FFT
-            self.fft.fftForward(floatBuffer!)
-            
+            //self.fft.fftForward(floatBuffer!)
+            //let magnitudes = self.fft.processAudioBuffer(floatBuffer!, frameCount: framesNumber, channelCount: self.numChannels)
             // Map FFT data to logical bands. This gives 2 bands per octave across 10 octaves = 20 bands.
-            self.fft.calculateLogarithmicBands(minFrequency: self.minFreq, maxFrequency: self.maxFreq , bandsPerOctave: self.bandsPerOctave)
+            // self.fft.calculateLogarithmicBands(minFrequency: self.minFreq, maxFrequency: self.maxFreq , bandsPerOctave: self.bandsPerOctave)
             
             // Process some data
-            self.magnitudesBuffer = [Float](repeating: 0.0, count: fft.numberOfBands)
-            for i in 0..<fft.numberOfBands {
-                magnitudesBuffer[i] = scaleBetween(unscaledNum: TempiFFT.toDB(fft.magnitudeAtBand(i)), minAllowed: -120.0, maxAllowed: 0.0, min: -120.0, max: 55.0)
+            //self.magnitudesBuffer = [Float](repeating: 0.0, count: fft.numberOfBands)
+            //for i in 0..<fft.numberOfBands {
+            //    magnitudesBuffer[i] = scaleBetween(unscaledNum: TempiFFT.toDB(fft.magnitudeAtBand(i)), minAllowed: -120.0, maxAllowed: 0.0, min: -120.0, max: 55.0)
 
-            }
-            self.channelsSpectrum.append(magnitudesBuffer)
+            //}
+            // let spectrum = self.fft.makeLogSpectrum(magnitudes: magnitudes, bandCount: 20)
+            //self.channelsSpectrum.append(spectrum)
         }
-                
-        for channel in self.channelsSpectrum {
-            for band in 0..<fft.numberOfBands {
-                allChannelsSpectrum[band] += channel[band]/Float(numChannels)
-            }
-        }
+            
+         // for channel in self.channelsSpectrum {
+         //     for band in 0..<19 {
+         //         allChannelsSpectrum[band] += channel[band]/Float(numChannels)
+         //     }
+         // }
 
-        self.delegate?.levelsDidChange(peaks: self.chDecibelsPeaks, averages: self.chDecibelsAvg, spectrum: self.channelsSpectrum, bandsCount: self.fft.numberOfBands)
+        self.delegate?.levelsDidChange(peaks: self.chDecibelsPeaks, averages: self.chDecibelsAvg, spectrum: self.channelsSpectrum, bandsCount: 20)
         
     }
         
     func scaleBetween(unscaledNum: Float, minAllowed: Float, maxAllowed: Float, min: Float, max: Float) -> Float {
       return (maxAllowed - minAllowed) * (unscaledNum - min) / (max - min) + minAllowed;
     }
+    
     
     
     //MARK: deinit

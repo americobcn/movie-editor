@@ -4,7 +4,7 @@ struct MeterTable {
     private let kMinDB: Float = -80.0
 
     // The table needs to be large enough that there are no large gaps in the response
-    private let tableSize = 400
+    private let tableSize = 500
     
     private let scaleFactor: Float
     private var meterTable = [Float]()
@@ -15,7 +15,7 @@ struct MeterTable {
 
         // this controls the curvature of the response.
         // 2.0 is square root, 3.0 is cube root.
-        let root: Float = 2.0
+        let root: Float = 3.0
         let rroot = 1.0 / root
         let minAmp = dbToAmp(dBValue: kMinDB)
         let ampRange = 1.0 - minAmp

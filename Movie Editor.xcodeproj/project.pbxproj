@@ -10,6 +10,8 @@
 		1E090442259FB5EC004F8026 /* MeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E090441259FB5EC004F8026 /* MeterView.swift */; };
 		1E0CD0A2245611BD00F5E559 /* ACTVerticalSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */; };
 		1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E173257244C9F2800E7EB08 /* PlayerView.swift */; };
+		1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */; };
+		1E353AAD2EFDE6330013B024 /* AudioTapProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAC2EFDE6330013B024 /* AudioTapProcessor.swift */; };
 		1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E384B542784A33300FF9243 /* SpectrumBarView.swift */; };
 		1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E3DD33B258FBD63009FE707 /* MeterTable.swift */; };
 		1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4822732455F1230012C4D6 /* ACTSliderCell.swift */; };
@@ -29,6 +31,8 @@
 		1E090441259FB5EC004F8026 /* MeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterView.swift; sourceTree = "<group>"; };
 		1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTVerticalSliderCell.swift; sourceTree = "<group>"; };
 		1E173257244C9F2800E7EB08 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFTAnalyzer.swift; sourceTree = "<group>"; };
+		1E353AAC2EFDE6330013B024 /* AudioTapProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTapProcessor.swift; sourceTree = "<group>"; };
 		1E384B542784A33300FF9243 /* SpectrumBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumBarView.swift; sourceTree = "<group>"; };
 		1E3DD33B258FBD63009FE707 /* MeterTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterTable.swift; sourceTree = "<group>"; };
 		1E4822732455F1230012C4D6 /* ACTSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTSliderCell.swift; sourceTree = "<group>"; };
@@ -75,6 +79,8 @@
 		1E0C4CD627786DBF00FD2EC4 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				1E353AAC2EFDE6330013B024 /* AudioTapProcessor.swift */,
+				1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */,
 				1EC568AB2EF9D902002D2724 /* TagEditor.swift */,
 				1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */,
 				1E603D1F257FE50700455EC0 /* TapProcessor.swift */,
@@ -208,6 +214,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */,
+				1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */,
 				1EF01415277E47BB004571B9 /* TempiFFT.swift in Sources */,
 				1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */,
 				1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */,
@@ -215,6 +222,7 @@
 				1E58873A244C59E0003C2430 /* AppDelegate.swift in Sources */,
 				1E0CD0A2245611BD00F5E559 /* ACTVerticalSliderCell.swift in Sources */,
 				1E588748244C5A0A003C2430 /* MainViewController.swift in Sources */,
+				1E353AAD2EFDE6330013B024 /* AudioTapProcessor.swift in Sources */,
 				1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */,
 				1E603D20257FE50700455EC0 /* TapProcessor.swift in Sources */,
 				1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */,

@@ -25,7 +25,7 @@ for i in 0..<fft.numberOfBands {
 let f = fft.frequencyAtBand(i)
 let m = fft.magnitudeAtBand(i)
 }
-
+ 
 Note that TempiFFT expects a mono signal (i.e. numChannels == 1) which is ideal for performance.
 */
 
