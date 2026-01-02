@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import  AVFoundation
+import AVFoundation
 import AppKit
 
 private var VIEW_CONTROLLER_KVOCONTEXT = 0
@@ -64,19 +64,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var spectrumBarWidth: CGFloat = 0.0
     var spectrumBarHeight: [CGFloat] = []
     var volumeBarHeight: [CGFloat] = []
-    // var tapi:TapProcessor!
     var audioTap: AudioTapProcessor!
-    private var meterTable = MeterTable()
     var meterTimer: Timer?
-    
     var audioSampleRate: Float!
-    var chMetertablePeaks: [Float]!
-    var chMetertableAvgs: [Float]!
-    var spectrumMetertableCoeff: [Float]!
     var spectrumBands: Int = 30 // default value
-    // var metertableSpectrum: [Float]!
-    
-    
+            
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
     private var assetReader: AVAssetReader!
@@ -108,7 +100,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var currentAssetTimeScale: CMTimeScale!
     
     var movieDimensions: CMVideoDimensions?
-    var movieColorPrimaries: String = ""   //CFPropertyList?
+    var movieColorPrimaries: String = ""
     var movieFieldCount: CFPropertyList?
     var movieDepth: CFPropertyList?
     var movieCodec: String = ""
@@ -267,11 +259,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.status), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.volume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.rate), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
-        
-        chMetertablePeaks = [Float](repeating: 0.0, count: chCount)
-        chMetertableAvgs = [Float](repeating: 0.0, count: chCount)
-        // metertableSpectrum = [Float](repeating: 0.0, count: spectrumBands)
-        spectrumMetertableCoeff = [Float](repeating: 0.0, count: spectrumBands)
+                
         spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
         volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
         createSpectrumView()
@@ -379,7 +367,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
-    func barHeight(magnitudeDB: Float, minDB: Float = -80.0, maxDB: Float = 0.0, maxHeight: Float = 130.0) -> CGFloat {
+    func barHeight(magnitudeDB: Float, minDB: Float = -120.0, maxDB: Float = 0.0, maxHeight: Float = 130.0) -> CGFloat {
         let clamped = min(max(magnitudeDB, minDB), maxDB)
         let normalized = (clamped - minDB) / (maxDB - minDB)
         
@@ -392,22 +380,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     func smooth(current: Float, target: Float, decay: Float = 0.85) -> Float {
         return max(target, current * decay)
-    }
-
-    
-    func levelsDidChange(peaks:[Float], averages:[Float], spectrum: [[Float]], bandsCount: Int) {
-        //Updating coefficients for drawing metersView and spectrumViews
-        for (index, peak) in peaks.enumerated() {
-            self.chMetertablePeaks[index] = meterTable.valueForPower(peak)
-        }
-
-        for (index, avg) in averages.enumerated() {
-            self.chMetertableAvgs[index] = meterTable.valueForPower(avg)
-        }
-        
-        for index in 0..<self.spectrumBands {
-            self.spectrumMetertableCoeff[index] = meterTable.valueForPower(spectrum[0][index])
-            }
     }
 
     
@@ -761,9 +733,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             } else {
                 print("ASBD is still nil, returning")
                return
-            }
-            
-            
+            }                    
         }
         
                     
@@ -796,28 +766,17 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                             
             // Insert the audio track
             if sourceAudioTrack != nil {
-                // print("Compositing audio track")
-                // print("Inserting audio track: \(String(describing: sourceAudioTrack))")
                 let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
                 guard let compositionAudioTrack = compositionAudioTrack else {
                     print("Composition audio track is nil")
                     return
                 }
-                
-                // let audioMediaDuration = try await audioAsset?.load(.duration) //sourceAudioTrack?.load(.timeRange)
-                // print("Inserting audio track: \(String(describing: sourceAudioTrack))")
-                // print("in composition: \(String(describing: compositionAudioTrack))")
-                // print("with duration: \(audioMediaDuration!)")
-                // print("at time: \(insertAtTime)")
-                
-                // let audioRangeMediaDuration = CMTimeRange(start: .zero, duration: audioMediaDuration)
+                                
                 try compositionAudioTrack.insertTimeRange(
                     videoRangeMediaDuration,
                     of: sourceAudioTrack!,
                     at: insertAtTime
                 )
-                // print("compostingAudioTrack: \(String(describing: compositionAudioTrack.asset!.description))")
-                
             }
             
             // Create the new player item FIRST
@@ -826,9 +785,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             
             // Setup processing tap with the new player item BEFORE assigning to self.playerItem
             if sourceAudioTrack != nil {
-                // self.tapi = TapProcessor(playerItem: newPlayerItem) // , channels: self.numChannels, sampleRate: self.audioSampleRate
-                // self.tapi.delegate = self
-                // await tapi.setupProcessingTap()
                 self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
                 self.audioTap.delegate = self
                 do {
@@ -846,7 +802,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 for c in centers {
                     frequencies.append(formatFrequency( c))
                 }
-                // print("Centers: \(frequencies)")
+                
             }
                                                                 
             // Now update the instance variables on main thread
@@ -906,7 +862,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     
-   func exportMovie(toUrl: URL) {
+    func exportMovie(toUrl: URL) {
     //Determining Compatipbility
     print("Exporting...\(String(describing: exportPreset))")
     guard let composition = mediaPlayer.currentItem?.asset else { return }
@@ -921,6 +877,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.progressIndicator.stopAnimation(self)
                 self.progressIndicator.alphaValue = 0.0
             }
+            // switch exporter.status {
             switch exporter.status {
             case .completed:
                 print("Succes")
@@ -969,15 +926,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     @objc func recalculateMeters() {
             for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 10.0 , height: self.volumeBarHeight[idx])) //130.0 * CGFloat(self.chMetertablePeaks[idx] * self.volumeSlider.floatValue)
+                view.animator().setFrameSize(NSSize(width: 10.0 , height: (self.volumeBarHeight[idx]) * CGFloat(mediaPlayer.volume)))
             }
         
             for (idx, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx])) // 130.0 * CGFloat(self.spectrumMetertableCoeff[idx])
-                // view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx]))
+                view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx]))
+                
             }
     }
         
+    
     func updateMetersView() {
         volumeSlider.floatValue = 1.0
         muteButton.floatValue = 0.0
@@ -994,18 +952,26 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
+    
     func createSpectrumView() {
         //Setting up Spectrum visualizer
         let bounds = mainSpectrumViewMeters.bounds
+        guard spectrumBands > 0 else { return }
+
         self.spectrumBarWidth = bounds.width / CGFloat(spectrumBands)
-        // print("Spectrum Bar Width: \(self.spectrumBarWidth), mainSpectrumViewMeters.bounds.width: \(bounds.width), spectrumbands: \(spectrumBands)")
-        
+
+        // Reuse existing bars and create any missing ones
         for i in 0..<spectrumBands {
             let xshift = CGFloat(i) * self.spectrumBarWidth
-            let barView = SpectrumBarView()
-            barView.setFrameOrigin(NSPoint(x: Double(xshift), y: 0.0))
-            mainSpectrumViewMeters.addSubview(barView)
-            // print("Spectrum Bar Origin: \(xshift)")
+            if i < spectrumMeters.count {
+                let barView = spectrumMeters[i]
+                barView.frame = NSRect(x: xshift, y: 0.0, width: self.spectrumBarWidth, height: 0.0)
+            } else {
+                let barView = SpectrumBarView()
+                barView.frame = NSRect(x: xshift, y: 0.0, width: self.spectrumBarWidth, height: 0.0)
+                mainSpectrumViewMeters.addSubview(barView)
+                spectrumMeters.append(barView)
+            }
         }
     }
     
@@ -1013,7 +979,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     func handleTimer(status: playerStatus) {
         switch status {
         case .playing:
-            meterTimer = Timer.scheduledTimer(timeInterval: 1.0/Double(videoFrameRate), target: self, selector: #selector(recalculateMeters), userInfo: nil, repeats: true)
+            // In order for the meters to keep updating while the user is interacting
+            // with controls (like dragging the volume slider) we must schedule the
+            // timer in the run loop's common modes. Using `scheduledTimer` adds
+            // it to the default mode which is paused during event tracking.
+            meterTimer?.invalidate()
+            meterTimer = Timer(timeInterval: 1.0/Double(videoFrameRate), target: self, selector: #selector(recalculateMeters), userInfo: nil, repeats: true)
+            if let t = meterTimer {
+                RunLoop.main.add(t, forMode: .common)
+            }
         case .stopped:
             meterTimer?.invalidate()
             //While in pause, set the meters to 0.0
@@ -1032,16 +1006,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
       return (norm - 1.0) // * 2.0
     }
 
-
     
     //MARK: Action Methods for Player Transport
         
     @IBAction func playPauseVideo(_ sender: NSButton) {
         if playerItem != nil {
-            if (mediaPlayer.timeControlStatus == AVPlayer.TimeControlStatus.playing) {
+            if (mediaPlayer.timeControlStatus == .playing) {
                 mediaPlayer.pause()
                 handleTimer(status: .stopped)
-            // If playerItem arrive at the end of the movie
+            // If playerItem is stopped at the end of the movie
             } else if mediaPlayer.currentTime() == mediaPlayer.currentItem?.duration && mediaPlayer.timeControlStatus == AVPlayer.TimeControlStatus.paused {
                 mediaPlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
                 mediaPlayer.play()
@@ -1102,8 +1075,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
 
-    
-        
+            
     //MARK: Action methods
     @IBAction func seekForeward(_ sender: NSButton) {
         if playerItem != nil {

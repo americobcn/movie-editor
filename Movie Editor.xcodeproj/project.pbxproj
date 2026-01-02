@@ -13,18 +13,15 @@
 		1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */; };
 		1E353AAD2EFDE6330013B024 /* AudioTapProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAC2EFDE6330013B024 /* AudioTapProcessor.swift */; };
 		1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E384B542784A33300FF9243 /* SpectrumBarView.swift */; };
-		1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E3DD33B258FBD63009FE707 /* MeterTable.swift */; };
 		1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4822732455F1230012C4D6 /* ACTSliderCell.swift */; };
 		1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */; };
 		1E58873A244C59E0003C2430 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E588739244C59E0003C2430 /* AppDelegate.swift */; };
 		1E58873C244C59E2003C2430 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E58873B244C59E2003C2430 /* Assets.xcassets */; };
 		1E58873F244C59E2003C2430 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 1E58873D244C59E2003C2430 /* MainMenu.xib */; };
 		1E588748244C5A0A003C2430 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E588747244C5A0A003C2430 /* MainViewController.swift */; };
-		1E603D20257FE50700455EC0 /* TapProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E603D1F257FE50700455EC0 /* TapProcessor.swift */; };
 		1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */; };
 		1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC568AB2EF9D902002D2724 /* TagEditor.swift */; };
 		1EDDCACD245C633700D88F3B /* ExportSettingsPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */; };
-		1EF01415277E47BB004571B9 /* TempiFFT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EF01414277E47BA004571B9 /* TempiFFT.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,7 +31,6 @@
 		1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFTAnalyzer.swift; sourceTree = "<group>"; };
 		1E353AAC2EFDE6330013B024 /* AudioTapProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTapProcessor.swift; sourceTree = "<group>"; };
 		1E384B542784A33300FF9243 /* SpectrumBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumBarView.swift; sourceTree = "<group>"; };
-		1E3DD33B258FBD63009FE707 /* MeterTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterTable.swift; sourceTree = "<group>"; };
 		1E4822732455F1230012C4D6 /* ACTSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTSliderCell.swift; sourceTree = "<group>"; };
 		1E48DC1A244F2D2800D72F2E /* Movie Editor-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Movie Editor-Bridging-Header.h"; sourceTree = "<group>"; };
 		1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DictionaryKey.m; sourceTree = "<group>"; };
@@ -46,11 +42,9 @@
 		1E588740244C59E2003C2430 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1E588741244C59E2003C2430 /* Movie_Editor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Movie_Editor.entitlements; sourceTree = "<group>"; };
 		1E588747244C5A0A003C2430 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
-		1E603D1F257FE50700455EC0 /* TapProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapProcessor.swift; sourceTree = "<group>"; };
 		1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaExporter.swift; sourceTree = "<group>"; };
 		1EC568AB2EF9D902002D2724 /* TagEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEditor.swift; sourceTree = "<group>"; };
 		1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSettingsPanelController.swift; sourceTree = "<group>"; };
-		1EF01414277E47BA004571B9 /* TempiFFT.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TempiFFT.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,9 +77,6 @@
 				1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */,
 				1EC568AB2EF9D902002D2724 /* TagEditor.swift */,
 				1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */,
-				1E603D1F257FE50700455EC0 /* TapProcessor.swift */,
-				1E3DD33B258FBD63009FE707 /* MeterTable.swift */,
-				1EF01414277E47BA004571B9 /* TempiFFT.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -215,7 +206,6 @@
 			files = (
 				1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */,
 				1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */,
-				1EF01415277E47BB004571B9 /* TempiFFT.swift in Sources */,
 				1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */,
 				1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */,
 				1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */,
@@ -224,8 +214,6 @@
 				1E588748244C5A0A003C2430 /* MainViewController.swift in Sources */,
 				1E353AAD2EFDE6330013B024 /* AudioTapProcessor.swift in Sources */,
 				1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */,
-				1E603D20257FE50700455EC0 /* TapProcessor.swift in Sources */,
-				1E3DD33C258FBD63009FE707 /* MeterTable.swift in Sources */,
 				1E090442259FB5EC004F8026 /* MeterView.swift in Sources */,
 				1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */,
 				1EDDCACD245C633700D88F3B /* ExportSettingsPanelController.swift in Sources */,

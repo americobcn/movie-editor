@@ -386,7 +386,6 @@ DQ
                 <outlet property="view" destination="4GI-kh-Ruj" id="F90-57-buS"/>
             </connections>
         </viewController>
-        <customObject id="8g7-Zi-R8Q" customClass="TapProcessor" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
         <userDefaultsController representsSharedInstance="YES" id="mW8-iJ-H5A"/>
         <window title="Export Settings" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" id="5Sd-B3-ASO" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES" utility="YES" HUD="YES"/>

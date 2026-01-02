@@ -12,18 +12,27 @@ import MediaToolbox
 import AVFoundation
 import Accelerate
 
-protocol AudioSpectrumProviderDelegate: class {
+protocol AudioSpectrumProviderDelegate: AnyObject {
     func spectrumDidChange(spectrum: [Float], peaks: [Float])
 }
 
 final class AudioTapProcessor {
-    var delegate:AudioSpectrumProviderDelegate?
+    weak var delegate: AudioSpectrumProviderDelegate?
     
     let fftAnalyzer: FFTAnalyzer
     let channelCount: Int
     let  sampleRate: Float
     let fftSize: Int
     var spectrumBands: Int
+    
+    // Cache mapping from FFT bin -> log band index to avoid expensive per-frame log10 calls
+    private var binToBandMap: [Int]? = nil
+    private var cachedBandCount: Int = 0
+    private var cachedMinFrequency: Float = 0
+    private var cachedMaxFrequency: Float = 0
+    // Reusable buffers to avoid per-frame allocations
+    private var bandsBuffer: [Float]? = nil
+    private var bandBinCountsBuffer: [Int]? = nil
 
     init(sampleRate: Float, channelCount: Int, fftSize: Int = 2048, spectrumBands: Int) {
         self.channelCount = channelCount
@@ -36,7 +45,7 @@ final class AudioTapProcessor {
             sampleRate: sampleRate,
             chCount: channelCount
         )
-        print("AudioTapProcessor initialized wtih \(channelCount) channels, sampleRate: \(sampleRate),fftSize: \(fftSize), spectrumBands: \(spectrumBands)")
+        // print("AudioTapProcessor initialized wtih \(channelCount) channels, sampleRate: \(sampleRate),fftSize: \(fftSize), spectrumBands: \(spectrumBands)")
     }
     
     
@@ -63,16 +72,20 @@ final class AudioTapProcessor {
         print("Successfully attached audio tap")
     }
 
-    
-    // func process(buffer: UnsafePointer<Float>, frameCount: Int, numberOfChannels: Int) {
+        
     func process(buffer: UnsafeMutablePointer<AudioBufferList>, frameCount: Int) {
         let (magnitudes, peaks) = fftAnalyzer.processAudioBuffer(
             buffer,
             frameCount: frameCount,
             channelCount: self.channelCount
         )
-        
-        self.delegate?.spectrumDidChange(spectrum: makeLogSpectrum(magnitudes: magnitudes[0], bandCount: self.spectrumBands), peaks: peaks)
+        // Build log spectrum directly from per-channel magnitudes (no intermediate averaged buffer).
+        let spectrum = makeLogSpectrum(magnitudesPerChannel: magnitudes, bandCount: self.spectrumBands)
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.delegate?.spectrumDidChange(spectrum: spectrum, peaks: peaks)
+        }
     }
     
     
@@ -83,55 +96,108 @@ final class AudioTapProcessor {
         maxFrequency: Float? = nil,
         useMax: Bool = false
     ) -> [Float] {
-        
+        // Delegate single-channel path to the multi-channel implementation
+        return makeLogSpectrum(magnitudesPerChannel: [magnitudes], bandCount: bandCount, minFrequency: minFrequency, maxFrequency: maxFrequency, useMax: useMax)
+    }
+
+    /// Aggregate per-channel magnitude buffers directly into log-spaced bands.
+    func makeLogSpectrum(
+        magnitudesPerChannel: [[Float]],
+        bandCount: Int = 20,
+        minFrequency: Float = 20.0,
+        maxFrequency: Float? = nil,
+        useMax: Bool = false
+    ) -> [Float] {
+
+        guard !magnitudesPerChannel.isEmpty else { return [Float](repeating: -140.0, count: bandCount) }
+
         let nyquist = self.sampleRate * 0.5
         let maxFreq = min(maxFrequency ?? nyquist, nyquist)
 
-        let binCount = magnitudes.count
-        let binResolution = self.sampleRate / Float(self.fftSize)
+        let binCount = magnitudesPerChannel[0].count
+        // If band mapping is not cached for this configuration, build it once.
+        if binToBandMap == nil || cachedBandCount != bandCount || cachedMinFrequency != minFrequency || cachedMaxFrequency != maxFreq {
+            var map = [Int](repeating: -1, count: binCount)
 
-        var bands = [Float](repeating: -140.0, count: bandCount)
-        var bandBinCounts = [Int](repeating: 0, count: bandCount)
+            let binResolution = self.sampleRate / Float(self.fftSize)
+            let logMin = log10(minFrequency)
+            let logMax = log10(maxFreq)
+            let logRange = logMax - logMin
 
-        let logMin = log10(minFrequency)
-        let logMax = log10(maxFreq)
-        let logRange = logMax - logMin
-
-        for bin in 0..<binCount {
-            let frequency = Float(bin) * binResolution
-            if frequency < minFrequency || frequency > maxFreq {
-                continue
+            for bin in 0..<binCount {
+                let frequency = Float(bin) * binResolution
+                if frequency < minFrequency || frequency > maxFreq {
+                    continue
+                }
+                let normalizedLog = (log10(frequency) - logMin) / logRange
+                var bandIndex = Int(normalizedLog * Float(bandCount))
+                if bandIndex < 0 { bandIndex = 0 }
+                if bandIndex >= bandCount { bandIndex = bandCount - 1 }
+                map[bin] = bandIndex
             }
 
-            let normalizedLog =
-                (log10(frequency) - logMin) / logRange
+            self.binToBandMap = map
+            self.cachedBandCount = bandCount
+            self.cachedMinFrequency = minFrequency
+            self.cachedMaxFrequency = maxFreq
+        }
 
-            let bandIndex = Int(
-                normalizedLog * Float(bandCount)
-            )
 
-            guard bandIndex >= 0 && bandIndex < bandCount else {
-                continue
-            }
-
-            let magnitude = magnitudes[bin]
-
-            if useMax {
-                bands[bandIndex] = max(bands[bandIndex], magnitude)
-            } else {
-                bands[bandIndex] += magnitude
-                bandBinCounts[bandIndex] += 1
+        // Prepare reusable buffers
+        if bandsBuffer == nil || bandsBuffer!.count != bandCount {
+            bandsBuffer = [Float](repeating: -140.0, count: bandCount)
+        } else {
+            var fillVal: Float = -140.0
+            bandsBuffer!.withUnsafeMutableBufferPointer { ptr in
+                vDSP_vfill(&fillVal, ptr.baseAddress!, 1, vDSP_Length(bandCount))
             }
         }
 
-        // Average bands if not using peak
-        if !useMax {
+        if bandBinCountsBuffer == nil || bandBinCountsBuffer!.count != bandCount {
+            bandBinCountsBuffer = [Int](repeating: 0, count: bandCount)
+        } else {
+            for i in 0..<bandCount { bandBinCountsBuffer![i] = 0 }
+        }
+
+        guard let map = binToBandMap, var bands = bandsBuffer, var bandBinCounts = bandBinCountsBuffer else { return [Float](repeating: -140.0, count: bandCount) }
+
+        let channelCount = magnitudesPerChannel.count
+
+        if useMax {
+            for bin in 0..<binCount {
+                let idx = map[bin]
+                if idx < 0 { continue }
+                var maxVal: Float = -Float.greatestFiniteMagnitude
+                for ch in 0..<channelCount {
+                    let val = magnitudesPerChannel[ch][bin]
+                    if val > maxVal { maxVal = val }
+                }
+                bands[idx] = max(bands[idx], maxVal)
+            }
+        } else {
+            for bin in 0..<binCount {
+                let idx = map[bin]
+                if idx < 0 { continue }
+                var sum: Float = 0
+                for ch in 0..<channelCount {
+                    sum += magnitudesPerChannel[ch][bin]
+                }
+                let avg = sum / Float(channelCount)
+                bands[idx] += avg
+                bandBinCounts[idx] += 1
+            }
+
             for i in 0..<bandCount {
                 if bandBinCounts[i] > 0 {
                     bands[i] /= Float(bandBinCounts[i])
                 }
             }
         }
+
+        // Commit mutated buffers back to storage to keep reusing them
+        bandsBuffer = bands
+        bandBinCountsBuffer = bandBinCounts
+
         return bands
     }
 }
