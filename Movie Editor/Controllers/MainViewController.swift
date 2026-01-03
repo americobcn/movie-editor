@@ -863,14 +863,22 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     
     func exportMovie(toUrl: URL) {
-    //Determining Compatipbility
-    print("Exporting...\(String(describing: exportPreset))")
-    guard let composition = mediaPlayer.currentItem?.asset else { return }
-    
-    //Generating the export session
-    guard let exporter = AVAssetExportSession(asset: composition, presetName: exportPreset) else { return }
-        exporter.outputFileType = AVFileType.mp4
-        exporter.outputURL = toUrl
+        //Determining Compatipbility
+        print("Exporting...\(String(describing: exportPreset)) to URL: \(toUrl.path)")
+        guard let composition = mediaPlayer.currentItem?.asset else { return }
+        //Generating the export session
+        guard let exporter = AVAssetExportSession(asset: composition, presetName: exportPreset) else { return }
+        var outURL: URL!
+        if toUrl.pathExtension.isEmpty {
+            outURL = toUrl.appendingPathExtension("mov")
+        } else {
+            outURL = toUrl.deletingPathExtension().appendingPathExtension("mov")
+        }
+        
+        print("Exporting to: \(outURL.path)")
+        
+        exporter.outputFileType = .mov
+        exporter.outputURL = outURL
         exporter.exportAsynchronously {
             print("EXPORTING..... PRESET: \(self.exportPreset)")
             DispatchQueue.main.async {
@@ -883,7 +891,13 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("Succes")
                 break
             case .failed:
-                print("Something goes wrong")
+                print("Something went wrong: \(exporter.error!.localizedDescription)")
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = "Export failed"
+                    alert.informativeText = "Error: \(exporter.error!.localizedDescription)\nCheck if filename is already taken.\nTry adding the extension file type(.mov)."
+                    alert.runModal()
+                }
                 break
             default:
                 break
@@ -1161,36 +1175,38 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     @IBAction func saveFile(_ sender: NSMenuItem) {
-        //Check if there is a Movie to Save/Export
-        if mediaPlayer.currentItem != nil {
-        //Open Save Panel
-            let savePanel = NSSavePanel()
-            savePanel.directoryURL = folderToSaveFile
-            switch sender.title {
+        
+            //Check if there is a Movie to Save/Export
+            if mediaPlayer.currentItem != nil {
+                //Open Save Panel
+                let savePanel = NSSavePanel()
+                savePanel.directoryURL = folderToSaveFile
+                switch sender.title {
                 case "Save":
                     savePanel.message = "Save as a new file without transcoding video, audio: AAC, 320kbs."
                 case "Export":
                     savePanel.message = "Export to \(espc.codecExportPopup.selectedItem!.title)."
                 default:
                     savePanel.message = ""
-            }
-            savePanel.allowedContentTypes = [UTType.movie, UTType.audiovisualContent, UTType.video]
-            savePanel.nameFieldStringValue =  url.lastPathComponent
-        
-            let response = savePanel.runModal()
-            if response == NSApplication.ModalResponse.OK {
-                progressIndicator.alphaValue = 1.0
-                progressIndicator.startAnimation(self)
-                if sender.title == "Save" {
-                    Task {
-                        await readAndWriteSamples(inputAsset: mediaPlayer.currentItem!.asset, destURL: savePanel.url!)
+                }
+                savePanel.allowedContentTypes = [UTType.movie, UTType.audiovisualContent, UTType.video]
+                savePanel.nameFieldStringValue =  url.lastPathComponent
+                
+                let response = savePanel.runModal()
+                if response == NSApplication.ModalResponse.OK {
+                    progressIndicator.alphaValue = 1.0
+                    progressIndicator.startAnimation(self)
+                    if sender.title == "Save" {
+                        Task {
+                            await readAndWriteSamples(inputAsset: mediaPlayer.currentItem!.asset, destURL: savePanel.url!)
+                        }
                     }
-                }
-                if sender.title == "Export" {
-                    exportMovie(toUrl: savePanel.url!)                    
-                }
+                    if sender.title == "Export" {
+                        exportMovie(toUrl: savePanel.url!)
+                    }
+                } else { return }
             } else { return }
-        } else { return }
+        
     }
     
     @IBAction func clearViewer(_ sender: NSMenuItem) {
