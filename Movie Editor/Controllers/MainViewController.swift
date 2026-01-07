@@ -67,7 +67,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 30 // default value
+    var spectrumBands: Int = 24 // default value
             
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
@@ -1016,7 +1016,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     func getSpectrumBarHeight(mag: Float, minDB: Float, maxDB: Float) -> Float {
         let norm = (mag - minDB) / (maxDB - minDB)
-        print("Norm: \(norm - 1)")
+        // print("Norm: \(norm - 1)")
       return (norm - 1.0) // * 2.0
     }
 
