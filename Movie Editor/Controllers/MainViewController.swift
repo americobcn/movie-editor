@@ -67,7 +67,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 24 // default value
+    var spectrumBands: Int = 32 // default value
             
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
@@ -359,29 +359,22 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     func spectrumDidChange(spectrum: [Float], peaks: [Float]){
         //print("spectrumDidChange: \(spectrum)")
         for index in 0..<self.spectrumBands {
-            self.spectrumBarHeight[index] = barHeight(magnitudeDB: spectrum[index])
+            self.spectrumBarHeight[index] = barHeight(magnitudeDB: spectrum[index], minDB: -50)
         }
         for index in 0..<self.chCount {
-            self.volumeBarHeight[index] = barHeight(magnitudeDB: peaks[index])
-            // print("\(index): \(volumeBarHeight[index])")
+            self.volumeBarHeight[index] = barHeight(magnitudeDB: peaks[index], minDB: -120)
         }
     }
     
-    func barHeight(magnitudeDB: Float, minDB: Float = -120.0, maxDB: Float = 0.0, maxHeight: Float = 130.0) -> CGFloat {
+    func barHeight(magnitudeDB: Float, minDB: Float = -100.0, maxDB: Float = 0.0, maxHeight: Float = 130.0) -> CGFloat {
         let clamped = min(max(magnitudeDB, minDB), maxDB)
         let normalized = (clamped - minDB) / (maxDB - minDB)
-        
         let gamma: Float = 0.7
         let curved = pow(normalized, gamma)
         
         return CGFloat(curved * maxHeight)
-        
     }
     
-    func smooth(current: Float, target: Float, decay: Float = 0.85) -> Float {
-        return max(target, current * decay)
-    }
-
     
     //MARK: Functions
     func loadMovieFromURL(loadUrl: URL) async {
@@ -494,15 +487,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         muteButton.isEnabled = true
         volumeSlider.isEnabled = true
         volumeSlider.floatValue = mediaPlayer.volume
-        // isMuted = false
+        
         
         //Setup the Tap for processing audio
         if hasAudioTrack {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" +
                                             getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
-            //self.tapi = TapProcessor(playerItem: playerItem!) //, channels: self.numChannels, sampleRate: self.audioSampleRate
-            //self.tapi.delegate = self
-            //await tapi.setupProcessingTap()
             self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
             do {
                 try await self.audioTap.attachTap(to: self.playerItem!, processor: self.audioTap)
@@ -510,12 +500,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("Error: Can't attach tap")
             }
             self.audioTap.delegate = self
-            //Adding channels view
             updateMetersView()
         } else {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
         }
-        
     }
     
     func getVideoTrackDescription(videoFormatDesc: CMFormatDescription) -> String {
@@ -1014,11 +1002,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
-    func getSpectrumBarHeight(mag: Float, minDB: Float, maxDB: Float) -> Float {
-        let norm = (mag - minDB) / (maxDB - minDB)
-        // print("Norm: \(norm - 1)")
-      return (norm - 1.0) // * 2.0
-    }
+    // func getSpectrumBarHeight(mag: Float, minDB: Float, maxDB: Float) -> Float {
+    //     let norm = (mag - minDB) / (maxDB - minDB)
+    //     // print("Norm: \(norm - 1)")
+    //   return (norm - 1.0) // * 2.0
+    // }
 
     
     //MARK: Action Methods for Player Transport
