@@ -70,7 +70,7 @@ final class AudioTapProcessor {
         let tap = try createAudioProcessingTap(processor: processor)
 
         let params = AVMutableAudioMixInputParameters(track: track)
-        params.audioTapProcessor = tap
+        params.audioTapProcessor = tap.takeUnretainedValue()
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [params]
@@ -88,7 +88,7 @@ final class AudioTapProcessor {
         }
         
         guard !magnitudes.isEmpty else { return }
-        print("Magnitudes: \(magnitudes[0])")
+        // print("Magnitudes: \(magnitudes[0])")
         // Build log spectrum directly from per-channel magnitudes (no intermediate averaged buffer).
         let spectrum = makeLogSpectrum(magnitudesPerChannel: magnitudes, bandCount: self.spectrumBands, minFrequency: 50.0, maxFrequency: 18_000.0 ,useMax: true)
                     
@@ -252,7 +252,7 @@ final class AudioTapProcessor {
     ///   - magnitudesPerChannel: 2D array of linear amplitudes [channel][bin]
     ///   - referenceAmplitude: The amplitude that represents 0 dBFS (default: 1.0)
     ///   - floor: Minimum dBFS value (default: -160.0)
-    
+/*
     func convertToDBFS(
         magnitudesPerChannel: inout [[Float]],
         referenceAmplitude: Float = 1.0,
@@ -266,24 +266,13 @@ final class AudioTapProcessor {
             let count = vDSP_Length(magnitudesPerChannel[channel].count)
             
             // Clamp minimum
-            vDSP_vclip(
-                magnitudesPerChannel[channel], 1,
-                &minVal, &greatestFiniteMagnitude,
-                &magnitudesPerChannel[channel], 1,
-                count
-            )
-            
+            vDSP_vclip(magnitudesPerChannel[channel], 1, &minVal, &greatestFiniteMagnitude, &magnitudesPerChannel[channel], 1, count)
+                                
             // Convert to dBFS
-            vDSP_vdbcon(
-                magnitudesPerChannel[channel], 1,
-                &reference,
-                &magnitudesPerChannel[channel], 1,
-                count,
-                0  // Flag 0 = amplitude reference (20·log₁₀)
-            )
+            vDSP_vdbcon(magnitudesPerChannel[channel], 1, &reference, &magnitudesPerChannel[channel], 1, count, 0)
         }
     }
-    
+*/
 }
 
 
@@ -341,7 +330,7 @@ private func tapProcessCallback(
 
 func createAudioProcessingTap(
     processor: AudioTapProcessor
-) throws -> MTAudioProcessingTap {
+) throws -> Unmanaged<MTAudioProcessingTap>  { // MTAudioProcessingTap
 
     let context = TapContext(processor: processor)
         
@@ -354,8 +343,8 @@ func createAudioProcessingTap(
         unprepare: tapUnprepareCallback,
         process: tapProcessCallback
     )
-
-    var tap: MTAudioProcessingTap?
+    
+    var tap: Unmanaged<MTAudioProcessingTap>? // MTAudioProcessingTap?
     let status = MTAudioProcessingTapCreate(
         kCFAllocatorDefault,
         &callbacks,

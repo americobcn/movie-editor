@@ -26,7 +26,8 @@ final class FFTAnalyzer {
 
     private var hannWindow: [Float]
     private let fftCorrection: Float
-    // private let fftNormalization: Float
+    private let windowSum: Float
+    private let fftNormalization: Float
     
     private var realp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var imagp: UnsafeMutablePointer<Float> // [Float] = [Float]()
@@ -49,6 +50,7 @@ final class FFTAnalyzer {
         precondition(fftSize.isPowerOfTwo, "FFT size must be a power of two")
 
         self.fftSize = fftSize
+        self.fftNormalization = 1.0 / Float(fftSize)
         self.sampleRate = sampleRate
         self.spectrumSize = (fftSize / 2) + 1
         
@@ -64,6 +66,7 @@ final class FFTAnalyzer {
         // Window gain correction
         var sum: Float = 0
         vDSP_sve(hannWindow, 1, &sum, vDSP_Length(fftSize))
+        self.windowSum = sum
         self.fftCorrection = 2.0 / sum  // Window correction + FFT normalization
         
         self.magnitudes = [[Float]](repeating: [Float](repeating: 0, count: spectrumSize), count: chCount)
@@ -71,6 +74,8 @@ final class FFTAnalyzer {
         self.realp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.splitComplex = DSPSplitComplex(realp: realp, imagp: imagp)
+        
+        print("FFT Anlyzer init:\nfftNormalization: \(fftNormalization), windowSum: \(windowSum), fftCorrection: \(fftCorrection)")
     }
 
     deinit {
@@ -114,6 +119,12 @@ final class FFTAnalyzer {
                                     
             // Perform FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
+            
+            //Normalize FFT
+            // var fftNormFactor: Float = 1.0 / Float(fftSize)
+            // magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
+            //     vDSP_vsmul(magPtr.baseAddress!, 1, &fftNormFactor, magPtr.baseAddress!, 1, vDSP_Length(spectrumSize))
+            // }
             
             // Extract DC and Nyquist (stored in packed format)
             let dc = abs(splitComplex.realp[0])
