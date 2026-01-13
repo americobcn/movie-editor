@@ -67,7 +67,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 16 // default value
+    var spectrumBands: Int = 24 // default value
             
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!

@@ -25,10 +25,14 @@ final class FFTAnalyzer {
     private let fftSetup: FFTSetup
 
     private var hannWindow: [Float]
-    private let fftCorrection: Float
-    private let windowSum: Float
+    // private let fftCorrection: Float
+    // private let windowSum: Float
     private let fftNormalization: Float
-    
+
+    private let windowCoherentGain: Float
+    private let scaleFactor: Float  // For bins 1...N/2-1 (one-sided spectrum)
+    private let scaleDCNyquist: Float  // For DC and Nyquist (no doubling)
+
     private var realp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var imagp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var splitComplex: DSPSplitComplex
@@ -63,11 +67,20 @@ final class FFTAnalyzer {
         self.hannWindow = [Float](repeating: 0, count: fftSize)
         vDSP_hann_window(&hannWindow, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
         
-        // Window gain correction
+        // Calculate window coherent gain (average value)
+        // For Hann window: coherent gain ≈ 0.5
         var sum: Float = 0
         vDSP_sve(hannWindow, 1, &sum, vDSP_Length(fftSize))
-        self.windowSum = sum
-        self.fftCorrection = 2.0 / sum  // Window correction + FFT normalization
+        self.windowCoherentGain = sum / Float(fftSize)
+        
+        // Scaling factors for proper magnitude spectrum
+        // For one-sided spectrum (bins 1 to N/2-1): multiply by 2
+        // Formula: 2 / (N * coherentGain)
+        self.scaleFactor = 2.0 / (Float(fftSize) * windowCoherentGain)
+        
+        // For DC and Nyquist: no doubling needed
+        // Formula: 1 / (N * coherentGain)
+        self.scaleDCNyquist = 1.0 / (Float(fftSize) * windowCoherentGain)
         
         self.magnitudes = [[Float]](repeating: [Float](repeating: 0, count: spectrumSize), count: chCount)
                 
@@ -75,7 +88,15 @@ final class FFTAnalyzer {
         self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.splitComplex = DSPSplitComplex(realp: realp, imagp: imagp)
         
-        print("FFT Anlyzer init:\nfftNormalization: \(fftNormalization), windowSum: \(windowSum), fftCorrection: \(fftCorrection)")
+        print("""
+                FFT Analyzer initialized:
+                - FFT Size: \(fftSize)
+                - Sample Rate: \(sampleRate) Hz
+                - Spectrum Size: \(spectrumSize)
+                - Window Coherent Gain: \(windowCoherentGain)
+                - Scale Factor (bins 1...N/2-1): \(scaleFactor)
+                - Scale Factor (DC & Nyquist): \(scaleDCNyquist)
+                """)
     }
 
     deinit {
@@ -90,104 +111,75 @@ final class FFTAnalyzer {
 
     /// Call this from your MTAudioProcessingTap callback // or UnsafePointer<Float>
     func processAudioBuffer(_ buffer: UnsafeMutablePointer<AudioBufferList>) -> ([[Float]], [Float]) {
-        // guard frameCount >= fftSize else { return (magnitudes, chDecibelsPeaks) }
-        precondition(buffer.pointee.mNumberBuffers == magnitudes.count)
+        precondition(buffer.pointee.mNumberBuffers == magnitudes.count, "Buffer channel count must match initialized channel count")
 
         for (channel, audioBuffer) in UnsafeMutableAudioBufferListPointer(buffer).enumerated() {
             let framesCount = Int(audioBuffer.mDataByteSize) / MemoryLayout<Float>.size
             
             guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesCount) else {
-                return (magnitudes, channelsPeak)
+                continue  // Skip this channel if buffer is invalid
             }
             
             //Calculate maximun amplitude of the buffer
             var peak: Float = 0
             vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesCount))
             self.channelsPeak[channel] =  peak
-                        
-            
+                                    
             /// CALCULATE FFT
-            // Apply window
+            // 1. Apply Hann window to input samples
             let samplesToProcess = min(framesCount, fftSize)
             vDSP_vmul(floatBuffer, 1, hannWindow, 1, splitComplex.realp, 1, vDSP_Length(samplesToProcess))
-            // Zero-pad if needed
+            
+            // 2. Zero-pad if input is shorter than FFT size
             if samplesToProcess < fftSize {
                 vDSP_vclr(splitComplex.realp.advanced(by: samplesToProcess), 1, vDSP_Length(fftSize - samplesToProcess))
             }
-            // Zero fill for imaginary part
+            
+            // 3. Zero-fill imaginary part (real-to-complex FFT)
             vDSP_vclr(splitComplex.imagp, 1, vDSP_Length(fftSize))
                                     
-            // Perform FFT
+            // 4. Perform in-place real-to-complex FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
-            
-            //Normalize FFT
-            // var fftNormFactor: Float = 1.0 / Float(fftSize)
-            // magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
-            //     vDSP_vsmul(magPtr.baseAddress!, 1, &fftNormFactor, magPtr.baseAddress!, 1, vDSP_Length(spectrumSize))
-            // }
-            
-            // Extract DC and Nyquist (stored in packed format)
+                        
+            // 5. Extract DC and Nyquist (stored in packed format by vDSP)
+            // After vDSP_fft_zrip: DC is in realp[0], Nyquist is in imagp[0]
             let dc = abs(splitComplex.realp[0])
             let nyquist = abs(splitComplex.imagp[0])
             
-            // 4. Vectorized magnitude extraction (bins 1...N/2-1)
-            let bodyCount = spectrumSize - 2 // spectrumSize == (fftsize/2) + 1
+            // 6. Compute magnitudes for bins 1...N/2-1 using vectorized operations
+            let bodyCount = spectrumSize - 2 // Exclude DC (bin 0) and Nyquist (bin N/2)
             var bodySplit = DSPSplitComplex(realp: splitComplex.realp.advanced(by: 1), imagp: splitComplex.imagp.advanced(by: 1))
             
             magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
+                // Compute sqrt(real^2 + imag^2) for bins 1...N/2-1
                 vDSP_zvabs(&bodySplit, 1, magPtr.baseAddress!.advanced(by: 1), 1, vDSP_Length(bodyCount))
             }
             
-            // 5. DC and Nyquist
+            // 7. Store DC and Nyquist magnitudes
             magnitudes[channel][0] = dc
             magnitudes[channel][spectrumSize - 1] = nyquist
-                    
-            // 6. Normalize FFT + window correction to all magnitudes
-            /// windowCorrection = 2.0 / sum(hanningWindow)
-            var scale = fftCorrection
+            
+            
+            // 6. Apply proper scaling factors
             magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
-                vDSP_vsmul(magPtr.baseAddress!, 1, &scale, magPtr.baseAddress!, 1, vDSP_Length(spectrumSize))
+                guard let basePtr = magPtr.baseAddress else { return }
+                
+                // Scale DC with single-sided factor (no doubling)
+                var scaleDC = scaleDCNyquist
+                vDSP_vsmul(basePtr, 1, &scaleDC, basePtr, 1, 1)
+                
+                // Scale bins 1...N/2-1 with doubled factor (one-sided spectrum)
+                var scaleBody = scaleFactor
+                vDSP_vsmul(basePtr.advanced(by: 1), 1, &scaleBody,
+                            basePtr.advanced(by: 1), 1, vDSP_Length(bodyCount))
+                
+                // Scale Nyquist with single-sided factor (no doubling)
+                var scaleNyq = scaleDCNyquist
+                vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq,
+                            basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
-            
-            // 7. One-sided ×2 compensation (excluding DC and Nyquist)
-            // var two: Float = 2.0
-            // magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
-            //     vDSP_vsmul(magPtr.baseAddress!.advanced(by: 1), 1, &two, magPtr.baseAddress!.advanced(by: 1), 1, vDSP_Length(bodyCount))
-            // }
-            
-            // 8. Peak normalize to 0 dBFS
-            // var maxMag: Float = 0.0
-            // vDSP_maxv(magnitudes[channel], 1, &maxMag, vDSP_Length(spectrumSize))
-            // maxMag = max(maxMag, epsilon)
-
-            // var invMax = 1.0 / maxMag
-            // vDSP_vsmul(magnitudes[channel], 1, &invMax, &magnitudes[channel], 1, vDSP_Length(spectrumSize))
-            
-            
-            // 9. Clamp
-            // var floor = epsilon
-            // vDSP_vthr(magnitudes[channel], 1, &epsilon, &magnitudes[channel], 1, vDSP_Length(spectrumSize))
-            
-            /// Convert to DBS
-            // var one: Float = 1.0
-            // vDSP_vdbcon(magnitudes[channel], 1, &one, &spectrumDB, 1, vDSP_Length(spectrumSize), 0)
-            // print("Spectrum dB: \(spectrumDB)\n")
-            // Read spectrum
-
-            // After real FFT, imagp[0] contains Nyquist, clear it for magnitude calculation
-            // splitComplex.imagp[0] = 0
-            // splitComplex.realp[0] = 0
-                                
-            // Magnitudes
-            // vDSP_zvabs(&splitComplex, 1, &magnitudes[channel], 1, vDSP_Length(fftSize / 2))
-            
-            // Hanning window coherent gain = 0.5
-            // Combined scaling: (2.0 / fftSize) / 0.5 = 4.0 / fftSize
-            // vDSP_vsmul(magnitudes[channel], 1, &scale, &magnitudes[channel], 1, vDSP_Length(fftSize / 2))
-            
-            // Convert to dB (optional but recommended for display)
-            // vDSP_vdbcon(magnitudes[channel], 1, &one, &magnitudes[channel], 1, vDSP_Length(fftSize / 2), 0)
         }
+        
         // print("Magni: \(magnitudes)")
         return (magnitudes, channelsPeak)
     }
