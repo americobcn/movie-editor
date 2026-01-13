@@ -24,9 +24,14 @@ class MediaExporter {
     
     
     // MARK: - Main Export Function
-    func exportMedia(from inputAsset: AVAsset, to destURL: URL) async throws -> URL {
-        print("Last path component: \(destURL.lastPathComponent.components(separatedBy: ".").last!)")
-        let fileExtension = destURL.lastPathComponent.components(separatedBy: ".").last!
+    func exportMedia(from inputAsset: AVAsset, to destURL: URL, fileExtension: String) async throws -> URL {
+        var url = destURL
+        if destURL.pathExtension.isEmpty {
+            url = destURL.appendingPathExtension(fileExtension)
+        }
+            
+        print("Last path component: \(url.lastPathComponent.components(separatedBy: ".").last!)")
+        let fileExtension = url.pathExtension //.lastPathComponent.components(separatedBy: ".").last!
         var fileType: AVFileType?
         switch fileExtension
         {
@@ -39,7 +44,7 @@ class MediaExporter {
         }
         // Setup reader and writer
         let assetReader = try AVAssetReader(asset: inputAsset)
-        let assetWriter = try AVAssetWriter(outputURL: destURL, fileType: fileType!)
+        let assetWriter = try AVAssetWriter(outputURL: url, fileType: fileType!)
         
         self.assetReader = assetReader
         self.assetWriter = assetWriter

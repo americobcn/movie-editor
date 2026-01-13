@@ -48,6 +48,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var url: URL!
     var audioUrl: URL!
     var folderToSaveFile: URL!
+    var sourceUrlExtension: String!
     @objc private var mediaPlayer = AVPlayer()
     @objc dynamic var currentTime:Double = 0.0
     var isMuted: Bool = false
@@ -156,7 +157,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             else { return mediaPlayer.volume }
         }
         set { if !isMuted {
-            mediaPlayer.volume = (pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
+            mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
             }
         }
     }
@@ -380,7 +381,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     func loadMovieFromURL(loadUrl: URL) async {
         folderToSaveFile = loadUrl.deletingLastPathComponent()
         url = loadUrl
-
+        sourceUrlExtension = loadUrl.pathExtension
+        
         if mediaPlayer.rate != 0 {
             mediaPlayer.pause()
         }
@@ -675,7 +677,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if let loadUrl = loadUrl {
             // print("insertAudio with url: \(String(describing: loadUrl))")
             folderToSaveFile = loadUrl.deletingLastPathComponent()
-            
             //Get the Audio Track
             let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
             audioAsset = AVURLAsset(url: loadUrl, options:loadOptions)
@@ -795,6 +796,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                                                                 
             // Now update the instance variables on main thread
             await MainActor.run {
+                
                 self.playerItem = newPlayerItem
                 self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
                 if sourceAudioTrack != nil {
@@ -805,13 +807,22 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         } catch {
             print("Error in audio/video processing: \(error)")
         }
-                                                        
+            
+        removeSpectrumBarsAndMeterViews()
         updateMetersView()
     }
     
+    func removeSpectrumBarsAndMeterViews() {
+        for view in metersView {
+            view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
+        }
+        for view in self.mainSpectrumViewMeters.subviews {
+            view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
+        }
+    }
     
+        
     @objc func handleDragNotification(_ notification: Notification) {
-        // print("Notification: \(notification)")
         if let url:URL = notification.object as? URL {
             self.audioUrl = url
             Task {
@@ -822,8 +833,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     break
                 case NOTIF_REPLACE_AUDIO:
                     print("Calling insertAudio")
-                    //await insertAudio(loadUrl: self.audioUrl)
-                    await insertOrRemoveAudio(loadUrl: self.audioUrl)
+                    await insertOrRemoveAudio(loadUrl: url ) // self.audioUrl
                     break
                 default:
                     return
@@ -833,14 +843,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     
-    
     func readAndWriteSamples(inputAsset: AVAsset, destURL: URL) async {
         let exporter = MediaExporter(progressIndicator: progressIndicator)
         Task {
             do {
                 let outputURL = try await exporter.exportMedia(
                     from: inputAsset,
-                    to: destURL
+                    to: destURL,
+                    fileExtension: sourceUrlExtension
                 )
                 print("Export completed: \(outputURL)")
             } catch {
@@ -893,11 +903,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
-//  Functions called from movieCurrentTimme computed properties to smoothly scrubing
-    
-//    public func seek(to time: CMTime) {
-//        seekSmoothlyToTime(newChaseTime: time)
-//    }
+    /// Functions called from movieCurrentTimme computed properties to smoothly scrubing
+    public func seek(to time: CMTime) {
+        seekSmoothlyToTime(newChaseTime: time)
+    }
     
     private func seekSmoothlyToTime(newChaseTime: CMTime) {
         if CMTimeCompare(newChaseTime, chaseTime) != 0 {
@@ -936,8 +945,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 
             }
     }
-        
-    
+            
     func updateMetersView() {
         volumeSlider.floatValue = 1.0
         muteButton.floatValue = 0.0
@@ -1158,12 +1166,13 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if response == NSApplication.ModalResponse.OK {
             Task {
                 await loadMovieFromURL(loadUrl: panel.url!)
+                
             }
         }        
     }
     
+    
     @IBAction func saveFile(_ sender: NSMenuItem) {
-        
             //Check if there is a Movie to Save/Export
             if mediaPlayer.currentItem != nil {
                 //Open Save Panel
