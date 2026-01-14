@@ -392,8 +392,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         mediaAsset = AVURLAsset(url: loadUrl, options: loadOptions)
         Task {
              try await mediaAsset.loadTracks(withMediaType: AVMediaType.video)
+            let (duration, metadata) = try await mediaAsset.load(.duration, .metadata)
+            print("Metadata: \(metadata)\nDuration: \(duration)")
         }
         
+
         let assetKeys = ["playable", "tracks", "duration", "hasProtectedContent"]
         
         //Load and Inspecting Video Track

@@ -95,7 +95,7 @@ final class FFTAnalyzer {
                 - Spectrum Size: \(spectrumSize)
                 - Window Coherent Gain: \(windowCoherentGain)
                 - Scale Factor (bins 1...N/2-1): \(scaleFactor)
-                - Scale Factor (DC & Nyquist): \(scaleDCNyquist)
+                - Scale Factor (DC & Nyquist): \(scaleDCNyquist)                
                 """)
     }
 
@@ -140,11 +140,12 @@ final class FFTAnalyzer {
                                     
             // 4. Perform in-place real-to-complex FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
-                        
+            
             // 5. Extract DC and Nyquist (stored in packed format by vDSP)
             // After vDSP_fft_zrip: DC is in realp[0], Nyquist is in imagp[0]
             let dc = abs(splitComplex.realp[0])
             let nyquist = abs(splitComplex.imagp[0])
+            // print("DC Normalized: \(dc/Float(fftSize))")
             
             // 6. Compute magnitudes for bins 1...N/2-1 using vectorized operations
             let bodyCount = spectrumSize - 2 // Exclude DC (bin 0) and Nyquist (bin N/2)
@@ -158,8 +159,7 @@ final class FFTAnalyzer {
             // 7. Store DC and Nyquist magnitudes
             magnitudes[channel][0] = dc
             magnitudes[channel][spectrumSize - 1] = nyquist
-            
-            
+                        
             // 6. Apply proper scaling factors
             magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
                 guard let basePtr = magPtr.baseAddress else { return }
@@ -175,12 +175,10 @@ final class FFTAnalyzer {
                 
                 // Scale Nyquist with single-sided factor (no doubling)
                 var scaleNyq = scaleDCNyquist
-                vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq,
-                            basePtr.advanced(by: spectrumSize - 1), 1, 1)
+                vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq, basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
+            // print("DC bin: \(magnitudes[channel][0])\tNyquist bin: \(magnitudes[channel][spectrumSize - 1])") //
         }
-        
-        // print("Magni: \(magnitudes)")
         return (magnitudes, channelsPeak)
     }
     
