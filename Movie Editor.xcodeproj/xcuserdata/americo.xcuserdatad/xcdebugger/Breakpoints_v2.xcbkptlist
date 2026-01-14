@@ -14,9 +14,9 @@
             filePath = "Movie Editor/Sources/FFTAnalyzer.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "179"
-            endingLineNumber = "179"
-            landmarkName = "processAudioBuffer(_:)"
+            startingLineNumber = "173"
+            endingLineNumber = "173"
+            landmarkName = "processAudioBuffer(_:_:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

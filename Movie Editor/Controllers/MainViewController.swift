@@ -301,8 +301,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         switch actualRate {
                         case 0.0:
                             playPauseBtn.title = "Play"
+                            print("STOPPED")
                         default:
                             playPauseBtn.title = "Stop"
+                            print("PLAYING")
                         }
                     }
                 }
@@ -384,16 +386,19 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         sourceUrlExtension = loadUrl.pathExtension
         
         if mediaPlayer.rate != 0 {
-            mediaPlayer.pause()
+            mediaPlayer.rate = 0 // media pause
         }
         
         //Load mediaAsset
         let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
         mediaAsset = AVURLAsset(url: loadUrl, options: loadOptions)
-        Task {
+        do {
              try await mediaAsset.loadTracks(withMediaType: AVMediaType.video)
             let (duration, metadata) = try await mediaAsset.load(.duration, .metadata)
             print("Metadata: \(metadata)\nDuration: \(duration)")
+        } catch {
+            print("Error loading mediaAsset: \(error)")
+            return
         }
         
 
@@ -673,9 +678,20 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
 
     func insertOrRemoveAudio(loadUrl: URL?) async {
         //folder where the new composition will be saved
+        if mediaPlayer.rate != 0 {
+            mediaPlayer.rate = 0 // media pause
+        }
+        
+        // Reset audio tap
+        self.audioTap?.delegate = nil
+        self.audioTap = nil
+        
+        // removeSpectrumBarsAndMeterViews()
+        
         let videoRangeMediaDuration = CMTimeRangeMake(start: .zero, duration: self.duration!)
         var audioAsset: AVURLAsset?
         var sourceAudioTrack: AVAssetTrack?
+        
         
         if let loadUrl = loadUrl {
             // print("insertAudio with url: \(String(describing: loadUrl))")
@@ -781,25 +797,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.audioTap.delegate = self
                 do {
                     try await self.audioTap.attachTap(to: newPlayerItem, processor: self.audioTap)
+                    
                 } catch {
                     print("Error: Can't attach tap")
                 }
-                
-                let centers = logBandCenters(
-                    bandCount: self.spectrumBands,
-                    minFrequency: 20,
-                    maxFrequency: 24_000
-                )
-                var frequencies: [String] = []
-                for c in centers {
-                    frequencies.append(formatFrequency( c))
-                }
+                createSpectrumView()
+                // let centers = logBandCenters(
+                //     bandCount: self.spectrumBands,
+                //     minFrequency: 20,
+                //     maxFrequency: 24_000
+                // )
+                // var frequencies: [String] = []
+                // for c in centers {
+                //     frequencies.append(formatFrequency( c))
+                // }
                 
             }
                                                                 
             // Now update the instance variables on main thread
             await MainActor.run {
-                
                 self.playerItem = newPlayerItem
                 self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
                 if sourceAudioTrack != nil {
@@ -810,18 +826,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         } catch {
             print("Error in audio/video processing: \(error)")
         }
-            
-        removeSpectrumBarsAndMeterViews()
-        updateMetersView()
+                
+        createSpectrumView()
     }
     
     func removeSpectrumBarsAndMeterViews() {
-        for view in metersView {
-            view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
+        for index in 0..<self.spectrumBands {
+            self.spectrumBarHeight[index] = barHeight(magnitudeDB: 0.0, minDB: -120)
         }
-        for view in self.mainSpectrumViewMeters.subviews {
-            view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
+        for index in 0..<self.chCount {
+            self.volumeBarHeight[index] = barHeight(magnitudeDB: 0.0, minDB: -120)
         }
+        // for view in metersView {
+        //     view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
+        //     view.removeFromSuperview()
+        // }
+        // for view in self.mainSpectrumViewMeters.subviews {
+        //     view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
+        //     view.removeFromSuperview()
+        // }
     }
     
         
@@ -1041,7 +1064,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     //MARK: Frequency related functions
-    
+/*
     func logBandEdges(
         bandCount: Int,
         minFrequency: Float,
@@ -1059,8 +1082,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
 
-    
-    
+        
     func logBandCenters(
         bandCount: Int,
         minFrequency: Float,
@@ -1078,8 +1100,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
 
-    
-    
+        
     func formatFrequency(_ hz: Float) -> String {
         if hz >= 1000 {
             return String(format: "%.1fkHz", hz / 1000)
@@ -1087,7 +1108,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             return String(format: "%.0fHz", hz)
         }
     }
-
+*/
             
     //MARK: Action methods
     @IBAction func seekForeward(_ sender: NSButton) {
@@ -1206,10 +1227,10 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     }
                 } else { return }
             } else { return }
-        
     }
     
     @IBAction func clearViewer(_ sender: NSMenuItem) {
+        removeSpectrumBarsAndMeterViews()
         playerItem = nil
         movieInfoDisplay.stringValue = ""
         movieTime.stringValue = String(format: "00:00:00:00")

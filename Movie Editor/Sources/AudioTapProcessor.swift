@@ -63,7 +63,7 @@ final class AudioTapProcessor {
 
         let tap = try createAudioProcessingTap(processor: processor)
         let params = AVMutableAudioMixInputParameters(track: track)
-        params.audioTapProcessor = tap.takeUnretainedValue()
+        params.audioTapProcessor = tap // .takeUnretainedValue()
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [params]
@@ -71,8 +71,8 @@ final class AudioTapProcessor {
         print("Successfully attached audio tap")
     }
 
-    func process(buffer: UnsafeMutablePointer<AudioBufferList>) {
-        let (magnitudes, peaks) = fftAnalyzer.processAudioBuffer(buffer)
+    func process(bufferList: UnsafeMutablePointer<AudioBufferList>, nFrames: Int) {
+        let (magnitudes, peaks) = fftAnalyzer.processAudioBuffer(bufferList, nFrames)
         
         // Convert peaks to dB
         for (idx, peak) in peaks.enumerated() {
@@ -82,13 +82,7 @@ final class AudioTapProcessor {
         guard !magnitudes.isEmpty else { return }
         
         // Build log spectrum from magnitudes
-        let spectrum = makeLogSpectrum(
-            magnitudesPerChannel: magnitudes,
-            bandCount: self.spectrumBands,
-            minFrequency: 20.0,
-            maxFrequency: maxFreq,
-            useMax: false
-        )
+        let spectrum = makeLogSpectrum(magnitudesPerChannel: magnitudes, bandCount: self.spectrumBands, minFrequency: 20.0, maxFrequency: maxFreq, useMax: false)
         
         // Throttle updates
         let now = CACurrentMediaTime()
@@ -373,14 +367,7 @@ private func tapProcessCallback(
     numberFramesOut: UnsafeMutablePointer<CMItemCount>,
     flagsOut: UnsafeMutablePointer<MTAudioProcessingTapFlags>
 ) {
-    let status = MTAudioProcessingTapGetSourceAudio(
-        tap,
-        numberFrames,
-        bufferListInOut,
-        flagsOut,
-        nil,
-        numberFramesOut
-    )
+    let status = MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut)
     
     guard status == noErr else { return }
     
@@ -389,12 +376,12 @@ private func tapProcessCallback(
         .fromOpaque(storage)
         .takeUnretainedValue()
     
-    context.processor.process(buffer: bufferListInOut)
+    context.processor.process(bufferList: bufferListInOut, nFrames: Int(numberFramesOut.pointee))
 }
 
 func createAudioProcessingTap(
     processor: AudioTapProcessor
-) throws -> Unmanaged<MTAudioProcessingTap> {
+) throws -> MTAudioProcessingTap { // Unmanaged<MTAudioProcessingTap>
     let context = TapContext(processor: processor)
     
     var callbacks = MTAudioProcessingTapCallbacks(
@@ -407,7 +394,7 @@ func createAudioProcessingTap(
         process: tapProcessCallback
     )
     
-    var tap: Unmanaged<MTAudioProcessingTap>?
+    var tap: MTAudioProcessingTap? //Unmanaged<MTAudioProcessingTap>?
     let status = MTAudioProcessingTapCreate(
         kCFAllocatorDefault,
         &callbacks,

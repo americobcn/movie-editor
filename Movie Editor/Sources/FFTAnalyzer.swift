@@ -25,9 +25,6 @@ final class FFTAnalyzer {
     private let fftSetup: FFTSetup
 
     private var hannWindow: [Float]
-    // private let fftCorrection: Float
-    // private let windowSum: Float
-    private let fftNormalization: Float
 
     private let windowCoherentGain: Float
     private let scaleFactor: Float  // For bins 1...N/2-1 (one-sided spectrum)
@@ -54,13 +51,12 @@ final class FFTAnalyzer {
         precondition(fftSize.isPowerOfTwo, "FFT size must be a power of two")
 
         self.fftSize = fftSize
-        self.fftNormalization = 1.0 / Float(fftSize)
         self.sampleRate = sampleRate
         self.spectrumSize = (fftSize / 2) + 1
         
         self.channelsPeak = [Float](repeating: 0, count: chCount)
-        self.log2n = vDSP_Length(Int(log2(Double(fftSize))))
-
+        
+        self.log2n = vDSP_Length(log2(Float(fftSize)))
         self.fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
         
         // Initialize Hanning Window
@@ -110,24 +106,23 @@ final class FFTAnalyzer {
     // MARK: - Processing Entry Point
 
     /// Call this from your MTAudioProcessingTap callback // or UnsafePointer<Float>
-    func processAudioBuffer(_ buffer: UnsafeMutablePointer<AudioBufferList>) -> ([[Float]], [Float]) {
-        precondition(buffer.pointee.mNumberBuffers == magnitudes.count, "Buffer channel count must match initialized channel count")
-
-        for (channel, audioBuffer) in UnsafeMutableAudioBufferListPointer(buffer).enumerated() {
-            let framesCount = Int(audioBuffer.mDataByteSize) / MemoryLayout<Float>.size
-            
-            guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesCount) else {
+    func processAudioBuffer(_ bufferList: UnsafeMutablePointer<AudioBufferList>, _ framesIn: Int) -> ([[Float]], [Float]) {
+        // precondition(buffer.pointee.mNumberBuffers == magnitudes.count, "Buffer channel count must match initialized channel count")
+        if bufferList.pointee.mNumberBuffers != magnitudes.count { return ([], []) }
+        
+        for (channel, audioBuffer) in UnsafeMutableAudioBufferListPointer(bufferList).enumerated() {
+            guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesIn) else {
                 continue  // Skip this channel if buffer is invalid
             }
             
             //Calculate maximun amplitude of the buffer
             var peak: Float = 0
-            vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesCount))
+            vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesIn))
             self.channelsPeak[channel] =  peak
                                     
             /// CALCULATE FFT
             // 1. Apply Hann window to input samples
-            let samplesToProcess = min(framesCount, fftSize)
+            let samplesToProcess = min(framesIn, fftSize)
             vDSP_vmul(floatBuffer, 1, hannWindow, 1, splitComplex.realp, 1, vDSP_Length(samplesToProcess))
             
             // 2. Zero-pad if input is shorter than FFT size
@@ -170,8 +165,7 @@ final class FFTAnalyzer {
                 
                 // Scale bins 1...N/2-1 with doubled factor (one-sided spectrum)
                 var scaleBody = scaleFactor
-                vDSP_vsmul(basePtr.advanced(by: 1), 1, &scaleBody,
-                            basePtr.advanced(by: 1), 1, vDSP_Length(bodyCount))
+                vDSP_vsmul(basePtr.advanced(by: 1), 1, &scaleBody, basePtr.advanced(by: 1), 1, vDSP_Length(bodyCount))
                 
                 // Scale Nyquist with single-sided factor (no doubling)
                 var scaleNyq = scaleDCNyquist
