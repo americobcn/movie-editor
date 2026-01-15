@@ -3,6 +3,14 @@ import MediaToolbox
 import AVFoundation
 import Accelerate
 
+
+#if compiler(>=6.0) || swift(>=6.0)
+typealias AudioTapVersionType = MTAudioProcessingTap
+#else
+typealias AudioTapVersionType = Unmanaged<MTAudioProcessingTap>
+#endif
+
+
 protocol AudioSpectrumProviderDelegate: AnyObject {
     func spectrumDidChange(spectrum: [Float], peaks: [Float])
 }
@@ -63,7 +71,12 @@ final class AudioTapProcessor {
 
         let tap = try createAudioProcessingTap(processor: processor)
         let params = AVMutableAudioMixInputParameters(track: track)
+
+#if compiler(>=6.0) || swift(>=6.0)
+        params.audioTapProcessor = tap
+#else
         params.audioTapProcessor = tap.takeUnretainedValue()
+#endif
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [params]
@@ -379,9 +392,9 @@ private func tapProcessCallback(
     context.processor.process(bufferList: bufferListInOut, nFrames: Int(numberFramesOut.pointee))
 }
 
-func createAudioProcessingTap(
-    processor: AudioTapProcessor
-) throws ->  Unmanaged<MTAudioProcessingTap> {   // MTAudioProcessingTap
+
+func createAudioProcessingTap(processor: AudioTapProcessor ) throws -> AudioTapVersionType    //   Unmanaged<MTAudioProcessingTap>
+{
     let context = TapContext(processor: processor)
     
     var callbacks = MTAudioProcessingTapCallbacks(
@@ -393,8 +406,8 @@ func createAudioProcessingTap(
         unprepare: tapUnprepareCallback,
         process: tapProcessCallback
     )
-    
-    var tap: Unmanaged<MTAudioProcessingTap>? // MTAudioProcessingTap?
+        
+    var tap: AudioTapVersionType?
     let status = MTAudioProcessingTapCreate(
         kCFAllocatorDefault,
         &callbacks,

@@ -54,7 +54,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var isMuted: Bool = false
     private var playerLayer : AVPlayerLayer!
     private var sliderScrubberObserver: NSKeyValueObservation?
-    // private var sliderVolumeObserver: NSKeyValueObservation?
+    private var sliderVolumeObserver: NSKeyValueObservation?
     private var smpteObserver: Any?
     var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
@@ -150,23 +150,23 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
          }
     }
     
-    // @objc dynamic var movieVolume: Float
-    // {
-    //     get {
-    //         if mediaPlayer.currentItem == nil {
-    //             return (0.0)
-    //         } else {
-    //             return mediaPlayer.volume
-    //         }
-    //     }
-    //     set { if !isMuted {
-    //         mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
-    //         }
-    //     }
-    // }
+    @objc dynamic var movieVolume: Float
+    {
+        get {
+            if mediaPlayer.currentItem == nil {
+                return (0.0)
+            } else {
+                return mediaPlayer.volume
+            }
+        }
+        set { if !isMuted {
+            mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
+            }
+        }
+    }
     
-//MARK: Overrides
     
+    //MARK: Overrides
     override func viewDidLoad() {
         super.viewDidLoad()
         // Setup playerLayer
@@ -245,7 +245,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }
             } as AnyObject as? NSKeyValueObservation
 
-/*
+
         sliderVolumeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
         { (elapsedTime: CMTime) -> Void in
 
@@ -257,7 +257,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                
            }
            } as AnyObject as? NSKeyValueObservation
-*/
+
         //  bind movieCurrentTime var to scrubberSlider.value ---->>>>> Binded in NIB file
             
         //  KVO state change, adding observers for playerItem.duration and playerItem.status (needed for replace playerItem on the mediaPlayer), volume and rate
