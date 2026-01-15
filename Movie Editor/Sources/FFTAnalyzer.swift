@@ -34,6 +34,7 @@ final class FFTAnalyzer {
     private var imagp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var splitComplex: DSPSplitComplex
 
+    
     private var magnitudes: [[Float]]
     private var channelsPeak: [Float]  //chDecibelsPeaks
     
@@ -79,7 +80,7 @@ final class FFTAnalyzer {
         self.scaleDCNyquist = 1.0 / (Float(fftSize) * windowCoherentGain)
         
         self.magnitudes = [[Float]](repeating: [Float](repeating: 0, count: spectrumSize), count: chCount)
-                
+        
         self.realp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.splitComplex = DSPSplitComplex(realp: realp, imagp: imagp)
@@ -135,6 +136,8 @@ final class FFTAnalyzer {
                                     
             // 4. Perform in-place real-to-complex FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
+                            
+            
             
             // 5. Extract DC and Nyquist (stored in packed format by vDSP)
             // After vDSP_fft_zrip: DC is in realp[0], Nyquist is in imagp[0]

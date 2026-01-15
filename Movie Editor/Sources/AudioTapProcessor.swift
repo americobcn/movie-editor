@@ -63,7 +63,7 @@ final class AudioTapProcessor {
 
         let tap = try createAudioProcessingTap(processor: processor)
         let params = AVMutableAudioMixInputParameters(track: track)
-        params.audioTapProcessor = tap // .takeUnretainedValue()
+        params.audioTapProcessor = tap.takeUnretainedValue()
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [params]
@@ -381,7 +381,7 @@ private func tapProcessCallback(
 
 func createAudioProcessingTap(
     processor: AudioTapProcessor
-) throws -> MTAudioProcessingTap { // Unmanaged<MTAudioProcessingTap>
+) throws ->  Unmanaged<MTAudioProcessingTap> {   // MTAudioProcessingTap
     let context = TapContext(processor: processor)
     
     var callbacks = MTAudioProcessingTapCallbacks(
@@ -394,7 +394,7 @@ func createAudioProcessingTap(
         process: tapProcessCallback
     )
     
-    var tap: MTAudioProcessingTap? //Unmanaged<MTAudioProcessingTap>?
+    var tap: Unmanaged<MTAudioProcessingTap>? // MTAudioProcessingTap?
     let status = MTAudioProcessingTapCreate(
         kCFAllocatorDefault,
         &callbacks,

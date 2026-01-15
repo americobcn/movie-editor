@@ -54,7 +54,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var isMuted: Bool = false
     private var playerLayer : AVPlayerLayer!
     private var sliderScrubberObserver: NSKeyValueObservation?
-    private var sliderVolumeObserver: NSKeyValueObservation?
+    // private var sliderVolumeObserver: NSKeyValueObservation?
     private var smpteObserver: Any?
     var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
@@ -150,24 +150,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
          }
     }
     
-    @objc dynamic var movieVolume: Float
-    {
-        get {
-            if mediaPlayer.currentItem == nil { return (0.0) }
-            else { return mediaPlayer.volume }
-        }
-        set { if !isMuted {
-            mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
-            }
-        }
-    }
+    // @objc dynamic var movieVolume: Float
+    // {
+    //     get {
+    //         if mediaPlayer.currentItem == nil {
+    //             return (0.0)
+    //         } else {
+    //             return mediaPlayer.volume
+    //         }
+    //     }
+    //     set { if !isMuted {
+    //         mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
+    //         }
+    //     }
+    // }
     
 //MARK: Overrides
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        
         // Setup playerLayer
         playerLayer = AVPlayerLayer(player: mediaPlayer)
         playerLayer.videoGravity = .resizeAspect
@@ -244,15 +245,19 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }
             } as AnyObject as? NSKeyValueObservation
 
+/*
         sliderVolumeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
         { (elapsedTime: CMTime) -> Void in
 
            if !self.movieTime.isHidden
            {
-                self.movieVolume = self.volumeSlider.floatValue
+               self.willChangeValue(forKey: "mediaPlayer.volume")
+               self.movieVolume = self.volumeSlider.floatValue
+               self.didChangeValue(forKey: "mediaPlayer.volume")
+               
            }
            } as AnyObject as? NSKeyValueObservation
-    
+*/
         //  bind movieCurrentTime var to scrubberSlider.value ---->>>>> Binded in NIB file
             
         //  KVO state change, adding observers for playerItem.duration and playerItem.status (needed for replace playerItem on the mediaPlayer), volume and rate
@@ -301,9 +306,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         switch actualRate {
                         case 0.0:
                             playPauseBtn.title = "Play"
+                            handleTimer(status: .stopped)
                             print("STOPPED")
                         default:
                             playPauseBtn.title = "Stop"
+                            handleTimer(status: .playing)
                             print("PLAYING")
                         }
                     }
@@ -678,28 +685,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
 
     func insertOrRemoveAudio(loadUrl: URL?) async {
         //folder where the new composition will be saved
-        if mediaPlayer.rate != 0 {
-            mediaPlayer.rate = 0 // media pause
+        if self.rate != 0 {
+            self.rate = 0 // media pause
         }
         
         // Reset audio tap
         self.audioTap?.delegate = nil
         self.audioTap = nil
         
-        // removeSpectrumBarsAndMeterViews()
+        resetSpectrumBarsAndMeterViews()
         
         let videoRangeMediaDuration = CMTimeRangeMake(start: .zero, duration: self.duration!)
         var audioAsset: AVURLAsset?
         var sourceAudioTrack: AVAssetTrack?
-        
-        
+                
         if let loadUrl = loadUrl {
-            // print("insertAudio with url: \(String(describing: loadUrl))")
             folderToSaveFile = loadUrl.deletingLastPathComponent()
             //Get the Audio Track
             let loadOptions = [AVURLAssetPreferPreciseDurationAndTimingKey : true]
             audioAsset = AVURLAsset(url: loadUrl, options:loadOptions)
-            // print("audioAsset: \(String(describing: audioAsset?.description))")
             
             // Load audio track
             do {
@@ -713,7 +717,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("No audio track found")
                 return
             }
-            // print("sourceAudioTrack: \(String(describing: sourceAudioTrack))")
             
             
             do {
@@ -801,7 +804,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 } catch {
                     print("Error: Can't attach tap")
                 }
-                createSpectrumView()
                 // let centers = logBandCenters(
                 //     bandCount: self.spectrumBands,
                 //     minFrequency: 20,
@@ -820,31 +822,22 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
                 if sourceAudioTrack != nil {
                     self.movieInfoDisplay.stringValue += "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
+                    self.isMuted = false
                 }
-                self.isMuted = false
             }
         } catch {
             print("Error in audio/video processing: \(error)")
         }
-                
-        createSpectrumView()
     }
     
-    func removeSpectrumBarsAndMeterViews() {
+    
+    func resetSpectrumBarsAndMeterViews() {
         for index in 0..<self.spectrumBands {
-            self.spectrumBarHeight[index] = barHeight(magnitudeDB: 0.0, minDB: -120)
+            self.spectrumBarHeight[index] = 0.0
         }
         for index in 0..<self.chCount {
-            self.volumeBarHeight[index] = barHeight(magnitudeDB: 0.0, minDB: -120)
+            self.volumeBarHeight[index] = 0.0
         }
-        // for view in metersView {
-        //     view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
-        //     view.removeFromSuperview()
-        // }
-        // for view in self.mainSpectrumViewMeters.subviews {
-        //     view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
-        //     view.removeFromSuperview()
-        // }
     }
     
         
@@ -973,8 +966,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
             
     func updateMetersView() {
+        print("Update Meters View called")
         volumeSlider.floatValue = 1.0
-        muteButton.floatValue = 0.0
+        // muteButton.floatValue = 0.0
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
         //Adding meterViews
@@ -1013,6 +1007,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     
     func handleTimer(status: playerStatus) {
+        print("handleTimer called")
         switch status {
         case .playing:
             // In order for the meters to keep updating while the user is interacting
@@ -1049,16 +1044,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if playerItem != nil {
             if (mediaPlayer.timeControlStatus == .playing) {
                 mediaPlayer.pause()
-                handleTimer(status: .stopped)
+                // handleTimer(status: .stopped)
             // If playerItem is stopped at the end of the movie
             } else if mediaPlayer.currentTime() == mediaPlayer.currentItem?.duration && mediaPlayer.timeControlStatus == AVPlayer.TimeControlStatus.paused {
                 mediaPlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
                 mediaPlayer.play()
-                handleTimer(status: .playing)
+                // handleTimer(status: .playing)
                 
             } else {
                 mediaPlayer.play()
-                handleTimer(status: .playing)
+                // handleTimer(status: .playing)
             }
         }
     }
@@ -1159,11 +1154,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     @IBAction func muteAudio(_ sender: NSButton) {
         if !isMuted {
-           //  audioVolumeBeforeMute = mediaPlayer.volume
             mediaPlayer.volume = 0.0
             isMuted = true
         } else {
-           //  mediaPlayer.volume = audioVolumeBeforeMute
             isMuted = false
         }
     }
@@ -1172,7 +1165,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @IBAction func removeAudioFromMovie(_ sender: NSMenuItem) {
             if playerItem != nil {
                 Task {
-                    //await removeAudio()
                     await insertOrRemoveAudio(loadUrl: nil)
                 }
         }
@@ -1229,8 +1221,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             } else { return }
     }
     
-    @IBAction func clearViewer(_ sender: NSMenuItem) {
-        removeSpectrumBarsAndMeterViews()
+    
+    @IBAction func clearInterface(_ sender: NSMenuItem) {
+        resetSpectrumBarsAndMeterViews()
         playerItem = nil
         movieInfoDisplay.stringValue = ""
         movieTime.stringValue = String(format: "00:00:00:00")
@@ -1238,9 +1231,21 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         scrubSlider.isEnabled = false
         muteButton.isEnabled = false
         view.window?.title = "Americo's Movie Player"
+        for view in metersView {
+            view.removeFromSuperview()
+        }
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
     }
+    
+    @IBAction func setVolume(_ sender: NSSlider) {
+
+        print("\nSlider Volume: \(sender.floatValue)")
+//        self.mediaPlayer.volume = sender.floatValue
+        print("Media Player Volume: \(mediaPlayer.volume)")
+        // print("Movie Volume: \(self.movieVolume)")
+    }
+    
 }
 
 
