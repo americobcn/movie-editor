@@ -294,13 +294,7 @@ DQ
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                         <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="100" tickMarkPosition="above" sliderType="linear" id="cCw-jz-F7g" customClass="ACTSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
                         <connections>
-                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieCurrentTime" id="Qfl-cR-QyG">
-                                <dictionary key="options">
-                                    <bool key="NSAllowsEditingMultipleValuesSelection" value="NO"/>
-                                    <bool key="NSConditionallySetsEnabled" value="NO"/>
-                                    <bool key="NSRaisesForNotApplicableKeys" value="NO"/>
-                                </dictionary>
-                            </binding>
+                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieCurrentTime" id="gq0-sb-u1U"/>
                         </connections>
                     </slider>
                     <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="dIx-gX-vHA">

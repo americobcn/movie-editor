@@ -4,7 +4,7 @@ import AVFoundation
 import Accelerate
 
 
-#if compiler(>=6.0) || swift(>=6.0)
+#if compiler(>=16.3) || swift(>=6.0)
 typealias AudioTapVersionType = MTAudioProcessingTap
 #else
 typealias AudioTapVersionType = Unmanaged<MTAudioProcessingTap>
@@ -72,7 +72,7 @@ final class AudioTapProcessor {
         let tap = try createAudioProcessingTap(processor: processor)
         let params = AVMutableAudioMixInputParameters(track: track)
 
-#if compiler(>=6.0) || swift(>=6.0)
+#if compiler(>=16.3) || swift(>=6.0)
         params.audioTapProcessor = tap
 #else
         params.audioTapProcessor = tap.takeUnretainedValue()

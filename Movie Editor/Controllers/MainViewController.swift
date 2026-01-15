@@ -14,7 +14,7 @@ private var VIEW_CONTROLLER_KVOCONTEXT = 0
 private var CURRENT_TIME_KVOCONTEXT = 0
 
 class MainViewController: NSViewController, ExportSettingsPanelControllerDelegate,  AudioSpectrumProviderDelegate { //AudioLevelProviderDelegate,
-        
+    
     enum AssetsError: Error {
         case noVideoTrack
         case noAudioTrack
@@ -34,7 +34,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @IBOutlet weak var playerView: NSView!
     @IBOutlet weak var playPauseBtn: NSButton!
     @IBOutlet weak var movieTime: NSTextField!              // Time Code display
-    @IBOutlet weak var scrubSlider: NSSlider!               // Scrubber slider    
+    @IBOutlet weak var scrubSlider: NSSlider!               // Scrubber slider
     @IBOutlet weak var progressIndicator: NSProgressIndicator!
     @IBOutlet weak var volumeSlider: NSSlider!
     @IBOutlet weak var muteButton: NSButton!
@@ -58,7 +58,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     private var smpteObserver: Any?
     var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
-
+    
     //MARK: Tap and Metering related Variables
     var metersView = [MeterView]()
     var spectrumMeters = [SpectrumBarView]()
@@ -69,7 +69,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var meterTimer: Timer?
     var audioSampleRate: Float!
     var spectrumBands: Int = 24 // default value
-            
+    
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
     private var assetReader: AVAssetReader!
@@ -93,7 +93,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioVolumeBeforeMute: Float = 0.0
     var loadedVideoTrackID: CMPersistentTrackID!
     var loadedAudioTrackID: CMPersistentTrackID!
-        
+    
     var fileType: AVMediaType!
     var videoFormatDesc: CMFormatDescription!
     var audioFormatDesc: CMFormatDescription!
@@ -109,7 +109,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var chCount: Int = 2
     
     enum playerStatus {
-    case playing, stopped
+        case playing, stopped
     }
     
     //Seek Related vars
@@ -123,7 +123,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         get { return mediaPlayer.rate }
         set { mediaPlayer.rate = newValue }
     }
-        
+    
     var playerItem: AVPlayerItem? = nil
     {
         didSet {
@@ -133,7 +133,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             mediaPlayer.replaceCurrentItem(with: self.playerItem)
         }
     }
-        
+    
     @objc dynamic var movieCurrentTime: Double
     {
         get
@@ -141,13 +141,13 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if mediaPlayer.currentItem == nil { return (0.0) }
             else { return (currentTime) }
         }
-
+        
         set
         {
             let newTime = CMTimeMakeWithSeconds(newValue, preferredTimescale: currentAssetTimeScale)   //CMTimeScale(NSEC_PER_SEC)
             currentTime = newValue
             seekSmoothlyToTime(newChaseTime: newTime)
-         }
+        }
     }
     
     @objc dynamic var movieVolume: Float
@@ -161,9 +161,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
         set { if !isMuted {
             mediaPlayer.volume = volumeSlider.floatValue //(pow(100.0, volumeSlider.floatValue) - 1.0) / 99.0
-            }
+        }
         }
     }
+    
+    // Observables
+    private var rateObservation: NSKeyValueObservation?
+    private var volumeObservation: NSKeyValueObservation?
+    private var currentItemObservation: NSKeyValueObservation?
+    private var durationObservation: NSKeyValueObservation?
+    private var statusObservation: NSKeyValueObservation?
     
     
     //MARK: Overrides
@@ -203,31 +210,57 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         mainSpectrumViewMeters.layer?.backgroundColor = NSColor.black.cgColor
         
         view.needsDisplay = true
+                        
+        spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
+        volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
+        createSpectrumView()
+        addObservers()
+    }
+    
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        //Setting the delegate
+        espc?.delegate = self
+    }
+    
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleDragNotification(_:)),
+                                               name: Notification.Name(rawValue: NOTIF_OPENFILE),
+                                               object: nil)
         
-        // Here we add observers and set the movie time var and textfield CMTimeScale(NSEC_PER_SEC)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleDragNotification(_:)),
+                                               name: Notification.Name(rawValue: NOTIF_REPLACE_AUDIO),
+                                               object: nil)
+    }
+    
+    
+    private func addObservers() {
         smpteObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
         {
             (elapsedTime: CMTime) -> Void in
             if !self.movieTime.isHidden
-                {
-                    let time = Float(CMTimeGetSeconds(self.mediaPlayer.currentItem?.currentTime() ?? CMTime.zero))
-                    let frame = Int(time * self.videoFrameRate)
-                    let FF = Int(Float(frame).truncatingRemainder(dividingBy: self.videoFrameRate))
-                    let seconds = Int(Float(frame - FF) / self.videoFrameRate)
-                    let SS = seconds % 60
-                    let MM = (seconds % 3600) / 60
-                    let HH = seconds / 3600
-                    self.movieTime.stringValue = String(format: "%02i:%02i:%02i:%02i", HH, MM, SS, FF)
-                }
+            {
+                let time = Float(CMTimeGetSeconds(self.mediaPlayer.currentItem?.currentTime() ?? CMTime.zero))
+                let frame = Int(time * self.videoFrameRate)
+                let FF = Int(Float(frame).truncatingRemainder(dividingBy: self.videoFrameRate))
+                let seconds = Int(Float(frame - FF) / self.videoFrameRate)
+                let SS = seconds % 60
+                let MM = (seconds % 3600) / 60
+                let HH = seconds / 3600
+                self.movieTime.stringValue = String(format: "%02i:%02i:%02i:%02i", HH, MM, SS, FF)
+            }
             
-            } as AnyObject
+        } as AnyObject
         
         //  set up observer to update slider
         //  observer only runs while player is playing
         //  just needs to be fast enough for smooth animation
         sliderScrubberObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
-         { (elapsedTime: CMTime) -> Void in
-             
+        { (elapsedTime: CMTime) -> Void in
+            
             // guard self.duration != CMTime.invalid else { return }
             if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration!)
             {
@@ -243,53 +276,27 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.currentTime = Double(CMTimeGetSeconds(self.mediaPlayer.currentTime()))
                 self.didChangeValue(forKey: "movieCurrentTime")
             }
-            } as AnyObject as? NSKeyValueObservation
-
-
-        sliderVolumeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
-        { (elapsedTime: CMTime) -> Void in
-
-           if !self.movieTime.isHidden
-           {
-               self.willChangeValue(forKey: "mediaPlayer.volume")
-               self.movieVolume = self.volumeSlider.floatValue
-               self.didChangeValue(forKey: "mediaPlayer.volume")
-               
-           }
-           } as AnyObject as? NSKeyValueObservation
-
+        } as AnyObject as? NSKeyValueObservation
+        
+        
+         sliderVolumeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
+         { (elapsedTime: CMTime) -> Void in
+             self.willChangeValue(forKey: "mediaPlayer.volume")
+             self.movieVolume = self.volumeSlider.floatValue
+             self.didChangeValue(forKey: "mediaPlayer.volume")
+         
+         
+         } as AnyObject as? NSKeyValueObservation
+         
         //  bind movieCurrentTime var to scrubberSlider.value ---->>>>> Binded in NIB file
-            
+        
         //  KVO state change, adding observers for playerItem.duration and playerItem.status (needed for replace playerItem on the mediaPlayer), volume and rate
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.duration), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.status), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
-        addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.volume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
+        // addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.volume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.rate), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
-                
-        spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
-        volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
-        createSpectrumView()
     }
     
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        //Setting the delegate
-        espc?.delegate = self
-        
-    }
-    
-    override func awakeFromNib() {
-        super.awakeFromNib()
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handleDragNotification(_:)),
-                                               name: Notification.Name(rawValue: NOTIF_OPENFILE),
-                                               object: nil)
-
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handleDragNotification(_:)),
-                                               name: Notification.Name(rawValue: NOTIF_REPLACE_AUDIO),
-                                               object: nil)
-    }
     
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?)
@@ -305,16 +312,21 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     if let actualRate = change?[NSKeyValueChangeKey.newKey] as? Float {
                         switch actualRate {
                         case 0.0:
-                            playPauseBtn.title = "Play"
-                            handleTimer(status: .stopped)
-                            print("STOPPED")
+                            DispatchQueue.main.async {
+                                self.playPauseBtn.title = "Play"
+                                self.handleTimer(status: .stopped)
+                                print("STOPPED")
+                            }
                         default:
-                            playPauseBtn.title = "Stop"
-                            handleTimer(status: .playing)
-                            print("PLAYING")
+                            DispatchQueue.main.async {
+                                self.playPauseBtn.title = "Stop"
+                                self.handleTimer(status: .playing)
+                                print("PLAYING")
+                            }
                         }
                     }
                 }
+                                                    
                 
                 if keyPath == #keyPath(MainViewController.mediaPlayer.currentItem.duration)
                 {
@@ -330,7 +342,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     scrubSlider!.floatValue = hasValidDuration ? Float(CMTimeGetSeconds(mediaPlayer.currentTime())) : 0.001
                     scrubSlider!.maxValue =  hasValidDuration ? Double(CMTimeGetSeconds(duration!)) : 0.001
                 }
-                
+                                
 
                 if keyPath == #keyPath(MainViewController.mediaPlayer.currentItem.status)
                 {
@@ -353,12 +365,13 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 let affectedKeyPathsMappingByKey: [String: Set<String>] = [
                     "duration":             [#keyPath(MainViewController.mediaPlayer.currentItem.duration)],
                     "rate":                 [#keyPath(MainViewController.mediaPlayer.rate)],
-                    "movieVolume":          [#keyPath(MainViewController.mediaPlayer.volume)]
+                    "movieVolume":          [#keyPath(MainViewController.mediaPlayer.volume)],
+                    "status":          [#keyPath(MainViewController.mediaPlayer.currentItem.status)]
                 ]
                 return affectedKeyPathsMappingByKey[key] ?? super.keyPathsForValuesAffectingValue(forKey: key)
             }
+        
 
-    
     //MARK: Delegate funcions
     func exportPresetDidChange(_ preset: String) {
         exportPreset = preset
@@ -823,6 +836,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 if sourceAudioTrack != nil {
                     self.movieInfoDisplay.stringValue += "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
                     self.isMuted = false
+                    addObservers()
                 }
             }
         } catch {
@@ -1459,4 +1473,102 @@ extension FourCharCode {
         }
     }
 */
-    
+
+/*
+func setupPlayerObservers() {
+    observeRate()
+    observeVolume()
+    observeCurrentItem()
+}
+
+private func observeRate() {
+    rateObservation = mediaPlayer.observe(\.rate, options: [.new]) { [weak self] player, change in
+        guard let self = self else { return }
+        let rate = change.newValue ?? 0
+
+        DispatchQueue.main.async {
+            if rate == 0 {
+                self.playPauseBtn.title = "Play"
+                self.handleTimer(status: .stopped)
+                print("STOPPED")
+            } else {
+                self.playPauseBtn.title = "Stop"
+                self.handleTimer(status: .playing)
+                print("PLAYING")
+            }
+        }
+    }
+}
+
+private func observeVolume() {
+    volumeObservation = mediaPlayer.observe(\.volume, options: [.new]) { _, change in
+        let volume = change.newValue ?? 0
+        print("Volume changed to \(volume)")
+        // Update UI here if needed (slider, label, etc.)
+    }
+}
+
+private func observeCurrentItem() {
+    currentItemObservation = mediaPlayer.observe(\.currentItem, options: [.new, .old]) { [weak self] _, change in
+        guard let self = self else { return }
+
+        // Stop observing old item automatically
+        self.durationObservation = nil
+        self.statusObservation = nil
+
+        guard let item = change.newValue as? AVPlayerItem else { return }
+
+        self.observeDuration(of: item)
+        self.observeStatus(of: item)
+    }
+}
+
+private func observeDuration(of item: AVPlayerItem) {
+    durationObservation = item.observe(\.duration, options: [.new]) { [weak self] item, _ in
+        guard let self = self else { return }
+
+        let duration = item.duration
+        let hasValidDuration =
+            duration.isNumeric &&
+            duration.seconds.isFinite &&
+            duration.seconds > 0
+
+        DispatchQueue.main.async {
+            self.scrubSlider?.isEnabled = hasValidDuration
+            self.scrubSlider?.maxValue = hasValidDuration ? duration.seconds : 1.0
+
+            let currentTime = min(self.mediaPlayer.currentTime().seconds, duration.seconds)
+            self.scrubSlider?.doubleValue = hasValidDuration ? max(currentTime, 0) : 0
+        }
+    }
+}
+
+private func observeStatus(of item: AVPlayerItem) {
+    statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+        guard let self = self else { return }
+
+        DispatchQueue.main.async {
+            switch item.status {
+            case .readyToPlay:
+                print("Ready to play")
+
+            case .failed:
+                print("Playback failed:", item.error?.localizedDescription ?? "Unknown error")
+
+            case .unknown:
+                break
+            @unknown default:
+                break
+            }
+        }
+    }
+}
+
+deinit {
+    rateObservation = nil
+    volumeObservation = nil
+    currentItemObservation = nil
+    durationObservation = nil
+    statusObservation = nil
+}
+*/
