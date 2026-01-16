@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="24506" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment version="101500" identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23504"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24506"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -167,7 +167,7 @@
             <windowStyleMask key="styleMask" titled="YES" texturedBackground="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="543" y="326" width="896" height="731"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2304" height="1271"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1920" height="1055"/>
             <view key="contentView" wantsLayer="YES" id="EiT-Mj-1SZ">
                 <rect key="frame" x="0.0" y="0.0" width="896" height="731"/>
                 <autoresizingMask key="autoresizingMask"/>
@@ -336,6 +336,9 @@ DQ
                         <rect key="frame" x="835" y="18" width="13" height="136"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
                         <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" maxValue="1" doubleValue="1" tickMarkPosition="left" sliderType="linear" id="0sw-cN-6l5" customClass="ACTVerticalSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
+                        <connections>
+                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieVolume" id="R7x-lw-Yji"/>
+                        </connections>
                     </slider>
                     <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="6vT-dS-BSV">
                         <rect key="frame" x="837" y="159" width="37" height="30"/>
@@ -375,7 +378,6 @@ DQ
         <viewController id="ioj-Lk-eMn" customClass="ExportSettingsPanelController" customModule="Americo_s_Movie_Player" customModuleProvider="target">
             <connections>
                 <outlet property="codecExportPopup" destination="BKg-93-YY2" id="gCd-UB-hkQ"/>
-                <outlet property="setExportSettingsButton" destination="xql-d5-NVW" id="Eev-Cf-pVU"/>
                 <outlet property="view" destination="4GI-kh-Ruj" id="F90-57-buS"/>
             </connections>
         </viewController>
@@ -384,7 +386,7 @@ DQ
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES" utility="YES" HUD="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="147" y="861" width="186" height="175"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2304" height="1271"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1920" height="1055"/>
             <view key="contentView" id="4GI-kh-Ruj">
                 <rect key="frame" x="0.0" y="0.0" width="186" height="175"/>
                 <autoresizingMask key="autoresizingMask"/>
@@ -403,7 +405,7 @@ DQ
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" id="PEe-jD-K96">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="menu"/>
+                            <font key="font" metaFont="message"/>
                             <menu key="menu" id="RPl-64-wYi"/>
                         </popUpButtonCell>
                         <connections>
@@ -436,7 +438,7 @@ DQ
         </window>
     </objects>
     <resources>
-        <image name="NSTouchBarAudioOutputMuteTemplate" width="17" height="20"/>
-        <image name="NSTouchBarAudioOutputVolumeHighTemplate" width="27" height="19"/>
+        <image name="NSTouchBarAudioOutputMuteTemplate" width="17" height="19"/>
+        <image name="NSTouchBarAudioOutputVolumeHighTemplate" width="26" height="18"/>
     </resources>
 </document>
