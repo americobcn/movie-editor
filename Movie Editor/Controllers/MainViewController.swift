@@ -55,7 +55,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     private var playerLayer : AVPlayerLayer!
     private var sliderScrubberObserver: NSKeyValueObservation?
     private var sliderVolumeObserver: NSKeyValueObservation?
-    private var smpteObserver: Any?
+    private var smpteObserver: NSKeyValueObservation?
     var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
     
@@ -215,6 +215,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
         createSpectrumView()
         addObservers()
+        
     }
     
     override func viewDidAppear() {
@@ -253,19 +254,19 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.movieTime.stringValue = String(format: "%02i:%02i:%02i:%02i", HH, MM, SS, FF)
             }
             
-        } as AnyObject
+        } as? NSKeyValueObservation
         
         //  set up observer to update slider
         //  observer only runs while player is playing
         //  just needs to be fast enough for smooth animation
         sliderScrubberObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
-        { (elapsedTime: CMTime) -> Void in
-            
+        {
+            (elapsedTime: CMTime) -> Void in
             // guard self.duration != CMTime.invalid else { return }
             if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration!)
             {
-                //  sync currentTime with elaspedTime in
-                //  case user clicks on PlayBtn here
+                //  sync currentTime with elaspedTime
+                //  in case user clicks on PlayBtn here (at end of the movie)
                 self.currentTime = CMTimeGetSeconds(elapsedTime)
                 self.mediaPlayer.pause()
                 self.playPauseBtn.title = "Play"
@@ -276,29 +277,29 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.currentTime = Double(CMTimeGetSeconds(self.mediaPlayer.currentTime()))
                 self.didChangeValue(forKey: "movieCurrentTime")
             }
-        } as AnyObject as? NSKeyValueObservation
+        } as? NSKeyValueObservation
         
         
          sliderVolumeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(0.04, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main)
-         { (elapsedTime: CMTime) -> Void in
-             self.willChangeValue(forKey: "mediaPlayer.volume")
+         {
+             (elapsedTime: CMTime) -> Void in
+             self.willChangeValue(forKey: "movieVolume")
              self.movieVolume = self.volumeSlider.floatValue
-             self.didChangeValue(forKey: "mediaPlayer.volume")
+             self.didChangeValue(forKey: "movieVolume")
          
-         
-         } as AnyObject as? NSKeyValueObservation
+         } as? NSKeyValueObservation
          
         //  bind movieCurrentTime var to scrubberSlider.value ---->>>>> Binded in NIB file
         
         //  KVO state change, adding observers for playerItem.duration and playerItem.status (needed for replace playerItem on the mediaPlayer), volume and rate
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.duration), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.status), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
-        // addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.volume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
+        addObserver(self, forKeyPath: #keyPath(MainViewController.movieVolume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.rate), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
     }
     
     
-    
+
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?)
             {
                 //  make sure the this KVO callback was intended for this view controller
@@ -360,6 +361,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 }
             }
             
+    
             override class func keyPathsForValuesAffectingValue(forKey key: String) -> Set<String>
             {
                 let affectedKeyPathsMappingByKey: [String: Set<String>] = [
@@ -370,8 +372,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 ]
                 return affectedKeyPathsMappingByKey[key] ?? super.keyPathsForValuesAffectingValue(forKey: key)
             }
-        
 
+
+    
+
+    
     //MARK: Delegate funcions
     func exportPresetDidChange(_ preset: String) {
         exportPreset = preset
@@ -1251,15 +1256,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
     }
-    
-    @IBAction func setVolume(_ sender: NSSlider) {
 
+    /*
+    @IBAction func setVolume(_ sender: NSSlider) {
         print("\nSlider Volume: \(sender.floatValue)")
-//        self.mediaPlayer.volume = sender.floatValue
+        self.mediaPlayer.volume = sender.floatValue
         print("Media Player Volume: \(mediaPlayer.volume)")
-        // print("Movie Volume: \(self.movieVolume)")
+        print("Movie Volume: \(self.movieVolume)")
     }
-    
+*/
 }
 
 
