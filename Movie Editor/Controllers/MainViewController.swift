@@ -514,11 +514,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         if hasAudioTrack {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" +
                                             getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
-            self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
             do {
+                self.audioTap = try AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
                 try await self.audioTap.attachTap(to: self.playerItem!, processor: self.audioTap)
             } catch {
-                print("Error: Can't attach tap")
+                print("Error: Can't initialize audio tap or attach tap: \(error)")
             }
             self.audioTap.delegate = self
             updateMetersView()
@@ -795,13 +795,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             
             // Setup processing tap with the new player item BEFORE assigning to self.playerItem
             if sourceAudioTrack != nil {
-                self.audioTap = AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
-                self.audioTap.delegate = self
                 do {
+                    self.audioTap = try AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
+                    self.audioTap.delegate = self
                     try await self.audioTap.attachTap(to: newPlayerItem, processor: self.audioTap)
-                    
                 } catch {
-                    print("Error: Can't attach tap")
+                    print("Error: Can't initialize audio tap or attach tap: \(error)")
                 }
                 // let centers = logBandCenters(
                 //     bandCount: self.spectrumBands,

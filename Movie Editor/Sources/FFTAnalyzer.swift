@@ -37,18 +37,19 @@ final class FFTAnalyzer {
     
     private var magnitudes: [[Float]]
     private var channelsPeak: [Float]  //chDecibelsPeaks
+    private let processingLock = NSLock()
+
+    // MARK: - Errors
     
-    private var one: Float = 1.0
-    private var peakLevel: Float = 0.0
-    private var epsilon: Float = 0.000_000_01 //1e-12
-    
-    // private(set) var spectrumDB: [Float]
-    
-    
+    enum FFTError: Error {
+        case setupFailed
+        case invalidBufferSize
+        case channelCountMismatch(expected: Int, actual: UInt32)
+    }
     
     // MARK: - Initialization
 
-    init(fftSize: Int, sampleRate: Float, chCount: Int) {
+    init(fftSize: Int, sampleRate: Float, chCount: Int) throws {
         precondition(fftSize.isPowerOfTwo, "FFT size must be a power of two")
 
         self.fftSize = fftSize
@@ -58,7 +59,10 @@ final class FFTAnalyzer {
         self.channelsPeak = [Float](repeating: 0, count: chCount)
         
         self.log2n = vDSP_Length(log2(Float(fftSize)))
-        self.fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+        guard let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else {
+            throw FFTError.setupFailed
+        }
+        self.fftSetup = setup
         
         // Initialize Hanning Window
         self.hannWindow = [Float](repeating: 0, count: fftSize)
@@ -83,6 +87,8 @@ final class FFTAnalyzer {
         
         self.realp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
         self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
+        self.realp.initialize(repeating: 0, count: fftSize)
+        self.imagp.initialize(repeating: 0, count: fftSize)
         self.splitComplex = DSPSplitComplex(realp: realp, imagp: imagp)
         
         print("""
@@ -102,16 +108,25 @@ final class FFTAnalyzer {
         vDSP_destroy_fftsetup(fftSetup)
     }
 
-    
-    
     // MARK: - Processing Entry Point
 
-    /// Call this from your MTAudioProcessingTap callback // or UnsafePointer<Float>
+    /// Process audio buffer from MTAudioProcessingTap callback
+    /// - Parameters:
+    ///   - bufferList: Audio buffer list from the tap
+    ///   - framesIn: Number of frames in the buffer
+    /// - Returns: Tuple of (magnitudes per channel, peak levels per channel)
     func processAudioBuffer(_ bufferList: UnsafeMutablePointer<AudioBufferList>, _ framesIn: Int) -> ([[Float]], [Float]) {
-        // precondition(buffer.pointee.mNumberBuffers == magnitudes.count, "Buffer channel count must match initialized channel count")
-        if bufferList.pointee.mNumberBuffers != magnitudes.count { return ([], []) }
+        if bufferList.pointee.mNumberBuffers != magnitudes.count {
+            assertionFailure("Channel count mismatch: expected \(magnitudes.count), got \(bufferList.pointee.mNumberBuffers)")
+            return ([], [])
+        }
         
         for (channel, audioBuffer) in UnsafeMutableAudioBufferListPointer(bufferList).enumerated() {
+            let requiredBytes = framesIn * MemoryLayout<Float>.stride
+            guard audioBuffer.mDataByteSize >= requiredBytes else {
+                print("Warning: Buffer too small. Expected \(requiredBytes) bytes, got \(audioBuffer.mDataByteSize)")
+                continue
+            }
             guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesIn) else {
                 continue  // Skip this channel if buffer is invalid
             }
@@ -119,6 +134,8 @@ final class FFTAnalyzer {
             //Calculate maximun amplitude of the buffer
             var peak: Float = 0
             vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesIn))
+            
+            processingLock.lock()
             self.channelsPeak[channel] =  peak
                                     
             /// CALCULATE FFT
@@ -142,8 +159,7 @@ final class FFTAnalyzer {
             // 5. Extract DC and Nyquist (stored in packed format by vDSP)
             // After vDSP_fft_zrip: DC is in realp[0], Nyquist is in imagp[0]
             let dc = abs(splitComplex.realp[0])
-            let nyquist = abs(splitComplex.imagp[0])
-            // print("DC Normalized: \(dc/Float(fftSize))")
+            let nyquist = abs(splitComplex.imagp[0])            
             
             // 6. Compute magnitudes for bins 1...N/2-1 using vectorized operations
             let bodyCount = spectrumSize - 2 // Exclude DC (bin 0) and Nyquist (bin N/2)
@@ -175,13 +191,14 @@ final class FFTAnalyzer {
                 vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq, basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
             // print("DC bin: \(magnitudes[channel][0])\tNyquist bin: \(magnitudes[channel][spectrumSize - 1])") //
+            processingLock.unlock()
         }
-        return (magnitudes, channelsPeak)
+        return (magnitudes.map { $0 }, Array(channelsPeak))
     }
     
     func frequency(at index: Int) -> Float {
-            return Float(index) * sampleRate / Float(fftSize)
-        }
+        return Float(index) * sampleRate / Float(fftSize)
+    }
 }
 
 

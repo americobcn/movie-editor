@@ -49,14 +49,14 @@ final class AudioTapProcessor {
     private var bandsBuffer: [Float]? = nil
     private var bandContributionCounts: [Float]? = nil  // Track fractional contributions
     
-    init(sampleRate: Float, channelCount: Int, fftSize: Int = 4096, spectrumBands: Int) {
+    init(sampleRate: Float, channelCount: Int, fftSize: Int = 4096, spectrumBands: Int) throws {
         self.channelCount = channelCount
         self.sampleRate = sampleRate
         self.fftSize = fftSize
         self.spectrumBands = spectrumBands
         self.chDecibelsPeak = [Float](repeating: 0, count: channelCount)
         self.maxFreq = sampleRate / 2.0
-        self.fftAnalyzer = FFTAnalyzer(fftSize: fftSize, sampleRate: sampleRate, chCount: channelCount)
+        self.fftAnalyzer = try FFTAnalyzer(fftSize: fftSize, sampleRate: sampleRate, chCount: channelCount)
     }
     
     @MainActor
