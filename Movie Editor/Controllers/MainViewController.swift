@@ -53,7 +53,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @objc dynamic var currentTime:Double = 0.0
     var isMuted: Bool = false
     private var playerLayer : AVPlayerLayer!
-    private var kvo: NSKeyValueObservation?
+    private var timeObserver: Any?
+    private var notificationObservers: [NSObjectProtocol] = []
+    private var areObserversAdded = false
     var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
         
@@ -125,6 +127,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         
     var playerItem: AVPlayerItem? = nil
     {
+        willSet {
+            // Remove observers from old player item before setting new one
+            removeObservers()
+            // Clean up old periodic time observer
+            if let observer = timeObserver {
+                mediaPlayer.removeTimeObserver(observer)
+                timeObserver = nil
+            }
+        }
         didSet {
             //  if needed, configure player item here before associating it with a player.
             //  (example: adding outputs, setting text style rules, selecting media options)
@@ -209,8 +220,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         
         spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
         volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
+    }
+    
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        // Create spectrum view after layout is complete and bounds are valid
         createSpectrumView()
-        addObservers()
     }
     
     override func viewDidAppear() {
@@ -221,22 +236,31 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     override func awakeFromNib() {
         super.awakeFromNib()
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handleDragNotification(_:)),
-                                               name: Notification.Name(rawValue: NOTIF_OPENFILE),
-                                               object: nil)
-        
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handleDragNotification(_:)),
-                                               name: Notification.Name(rawValue: NOTIF_REPLACE_AUDIO),
-                                               object: nil)
+        let openFileObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name(rawValue: NOTIF_OPENFILE),
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            self?.handleDragNotification(notification)
+        }
+        notificationObservers.append(openFileObserver)
+
+        let replaceAudioObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name(rawValue: NOTIF_REPLACE_AUDIO),
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            self?.handleDragNotification(notification)
+        }
+        notificationObservers.append(replaceAudioObserver)
     }
     
     
     
     private func setupPeriodicUpdates(rateInterval: Float64 = 0.04 ) {
-        kvo = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(rateInterval, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main) {
-            (elapsedTime: CMTime) -> Void in
+        timeObserver = mediaPlayer.addPeriodicTimeObserver(forInterval: CMTimeMakeWithSeconds(rateInterval, preferredTimescale: CMTimeScale(NSEC_PER_SEC)), queue: DispatchQueue.main) { [weak self] (elapsedTime: CMTime) -> Void in
+            guard let self = self else { return }
+            
             // Update timeCode display
             if !self.movieTime.isHidden {
                 let time = Float(CMTimeGetSeconds(self.mediaPlayer.currentItem?.currentTime() ?? CMTime.zero))
@@ -250,7 +274,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }
             
             // Updates scrubSlider while playing
-            if CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(self.duration!) {
+            if let duration = self.duration, CMTimeGetSeconds(elapsedTime) == CMTimeGetSeconds(duration) {
                 // sync currentTime with elaspedTime
                 // in case user clicks on PlayBtn here (at end of the movie)
                 self.currentTime = CMTimeGetSeconds(elapsedTime)
@@ -261,8 +285,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.currentTime = Double(CMTimeGetSeconds(self.mediaPlayer.currentTime()))
                 self.didChangeValue(forKey: "movieCurrentTime")
             }
-            
-        } as? NSKeyValueObservation
+        }
         
         //  bind movieCurrentTime var to scrubSlider.value ---->>>>> Binded in NIB file
     }
@@ -270,11 +293,13 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     
     private func addObservers() {
+        guard !areObserversAdded else { return }
         //  KVO state change, adding observers for playerItem.duration and playerItem.status (needed for replace playerItem on the mediaPlayer), volume and rate
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.duration), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.status), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.movieVolume), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
         addObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.rate), options: [.new, .initial], context: &VIEW_CONTROLLER_KVOCONTEXT)
+        areObserversAdded = true
     }
     
     
@@ -350,16 +375,27 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
 
 
     private func removeObservers() {
+        guard areObserversAdded else { return }
         removeObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.duration), context: &VIEW_CONTROLLER_KVOCONTEXT)
         removeObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.currentItem.status), context: &VIEW_CONTROLLER_KVOCONTEXT)
         removeObserver(self, forKeyPath: #keyPath(MainViewController.movieVolume), context: &VIEW_CONTROLLER_KVOCONTEXT)
         removeObserver(self, forKeyPath: #keyPath(MainViewController.mediaPlayer.rate), context: &VIEW_CONTROLLER_KVOCONTEXT)
+        areObserversAdded = false
     }
     
     
     deinit {
         removeObservers()
-        kvo = nil
+        if let observer = timeObserver {
+            mediaPlayer.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+        // Remove NotificationCenter observers
+        notificationObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        notificationObservers.removeAll()
+        // Invalidate timer to break retain cycle
+        meterTimer?.invalidate()
+        meterTimer = nil
     }
     
     
@@ -418,14 +454,23 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //Load and Inspecting Video Track
         let videoTrack: AVAssetTrack
         do {
-            videoTrack = try await mediaAsset.loadTracks(withMediaType: .video).first!
+            guard let track = try await mediaAsset.loadTracks(withMediaType: .video).first else {
+                print("Error: No video track found")
+                return
+            }
+            videoTrack = track
         } catch {
             print("Error: \(error)")
             return
         }
                     
         do {
-            videoFormatDesc = try await videoTrack.load(.formatDescriptions)[0]
+            let formatDescriptions = try await videoTrack.load(.formatDescriptions)
+            guard let firstFormat = formatDescriptions.first else {
+                print("Error: No format descriptions found")
+                return
+            }
+            videoFormatDesc = firstFormat
         } catch {
             print("Error: \(error)")
             return
@@ -439,16 +484,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 
         loadedVideoTrackID = videoTrack.trackID
         let mediaSubType = CMFormatDescriptionGetMediaSubType(videoFormatDesc)
-        if let formatName = CMFormatDescriptionGetExtension(videoFormatDesc, extensionKey: kCMFormatDescriptionExtension_FormatName) { //kCMFormatDescriptionExtension_FormatName
-           //  print("mediaSubType: \(mediaSubType.toString()), formatName: \(formatName as! String)")
-            if formatName as! String == "'hev1'" || mediaSubType.toString() == "hev1"{
+        if let formatName = CMFormatDescriptionGetExtension(videoFormatDesc, extensionKey: kCMFormatDescriptionExtension_FormatName) as? String {
+            if formatName == "'hev1'" || mediaSubType.toString() == "hev1" {
                     let alertPanel = NSAlert() //
                     alertPanel.alertStyle = .warning
                     alertPanel.messageText = "Do you want to load a copy with the correct file tag?"
                     alertPanel.informativeText = "This is a HEVC(H.265) file tagged as 'hev1', the file should have the 'hvc1' tag."
                     alertPanel.addButton(withTitle: "Save")
                     alertPanel.addButton(withTitle: "Cancel")
-                    alertPanel.beginSheetModal(for: self.view.window!, completionHandler: { result in
+                    alertPanel.beginSheetModal(for: self.view.window!, completionHandler: { [weak self] result in
+                        guard let self = self else { return }
                         if result == .alertFirstButtonReturn {
                             let tagEditor = TagEditor(url: self.url)
                             do {
@@ -456,15 +501,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                                 // print("Output: \(tagResult.outputURL)")
                                 // print("Modified: \(tagResult.wasModified)")
                                 if tagResult.outputURL != self.url {
-                                    Task {
+                                    Task { [weak self] in
+                                        guard let self = self else { return }
                                         await self.loadMovieFromURL(loadUrl: tagResult.outputURL)
                                     }
                                 }
                             } catch {
                                 print("Error: \(error)")
                             }
-                        } else {
-                            return
                         }
                     })
                 }
@@ -502,12 +546,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             print("Couldn't get Duration")
         }
         
-        self.view.window?.title =  loadUrl.lastPathComponent
-                    
-        //Seting initial audio volume and mute  button state
-        muteButton.isEnabled = true
-        volumeSlider.isEnabled = true
-        volumeSlider.floatValue = mediaPlayer.volume
+        await MainActor.run {
+            self.view.window?.title = loadUrl.lastPathComponent
+            
+            //Seting initial audio volume and mute button state
+            self.muteButton.isEnabled = true
+            self.volumeSlider.isEnabled = true
+            self.volumeSlider.floatValue = self.mediaPlayer.volume
+        }
         
         
         //Setup the Tap for processing audio
@@ -515,8 +561,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc) + "\nAudio:\n" +
                                             getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
             do {
+                guard let playerItem = self.playerItem else {
+                    print("Error: No player item available")
+                    return
+                }
                 self.audioTap = try AudioTapProcessor(sampleRate: self.audioSampleRate, channelCount: self.chCount, spectrumBands: self.spectrumBands)
-                try await self.audioTap.attachTap(to: self.playerItem!, processor: self.audioTap)
+                try await self.audioTap.attachTap(to: playerItem, processor: self.audioTap)
             } catch {
                 print("Error: Can't initialize audio tap or attach tap: \(error)")
             }
@@ -590,8 +640,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }            
         }
         
-        let duration = String(format: "%.2f", CMTimeGetSeconds(self.duration!))
-        videoDescription = String(format: "Duration: \(duration)s\nVideo:\n\(movieCodec), \(String(describing: movieDimensions!.width))x\(String(describing: movieDimensions!.height))\(interlacedPregressive)\n\(videoFrameRateString)fps\(movieColorPrimaries), %ibits\n",Int(truncating: movieDepth! as! NSNumber)
+        guard let duration = self.duration, duration.isNumeric else {
+            return "Error: Invalid duration"
+        }
+        let durationString = String(format: "%.2f", CMTimeGetSeconds(duration))
+        let width = movieDimensions?.width ?? 0
+        let height = movieDimensions?.height ?? 0
+        let depth = Int(truncating: movieDepth as? NSNumber ?? 0)
+        videoDescription = String(format: "Duration: \(durationString)s\nVideo:\n\(movieCodec), \(width)x\(height)\(interlacedPregressive)\n\(videoFrameRateString)fps\(movieColorPrimaries), %ibits\n", depth
         )
         
         return videoDescription
@@ -695,9 +751,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         self.audioTap = nil
         
         resetSpectrumBarsAndMeterViews()
-        removeObservers()
         
-        let videoRangeMediaDuration = CMTimeRangeMake(start: .zero, duration: self.duration!)
+        guard let duration = self.duration, duration.isNumeric && duration.value != 0 else {
+            print("Error: Invalid duration for video composition")
+            return
+        }
+        let videoRangeMediaDuration = CMTimeRangeMake(start: .zero, duration: duration)
         var audioAsset: AVURLAsset?
         var sourceAudioTrack: AVAssetTrack?
                 
@@ -753,7 +812,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //New Video Composition
         let composition = AVMutableComposition()
         let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        let insertAtTime = mediaPlayer.currentTime()
+        let insertAtTime = await MainActor.run { mediaPlayer.currentTime() }
         
         do {
             // Load video track
@@ -821,7 +880,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 if sourceAudioTrack != nil {
                     self.movieInfoDisplay.stringValue += "\nAudio:\n" + getAudioTrackDescription(audioFormatDesc: audioFormatDesc)
                     self.isMuted = false
-                    addObservers()
                 }
             }
         } catch {
@@ -895,24 +953,28 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         
         exporter.outputFileType = .mov
         exporter.outputURL = outURL
-        exporter.exportAsynchronously {
+        exporter.exportAsynchronously { [weak self] in
+            guard let self = self else { return }
             print("EXPORTING..... PRESET: \(self.exportPreset)")
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 self.progressIndicator.stopAnimation(self)
                 self.progressIndicator.alphaValue = 0.0
             }
-            // switch exporter.status {
+            // switch exporter.status:
             switch exporter.status {
             case .completed:
                 print("Succes")
                 break
             case .failed:
-                print("Something went wrong: \(exporter.error!.localizedDescription)")
-                DispatchQueue.main.async {
-                    let alert = NSAlert()
-                    alert.messageText = "Export failed"
-                    alert.informativeText = "Error: \(exporter.error!.localizedDescription)\nCheck if filename is already taken.\nTry adding the extension file type(.mov)."
-                    alert.runModal()
+                if let error = exporter.error {
+                    print("Something went wrong: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        let alert = NSAlert()
+                        alert.messageText = "Export failed"
+                        alert.informativeText = "Error: \(error.localizedDescription)\nCheck if filename is already taken.\nTry adding the extension file type(.mov)."
+                        alert.runModal()
+                    }
                 }
                 break
             default:
@@ -1019,53 +1081,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         }
     }
     
-    //MARK: Frequency related functions
-/*
-    func logBandEdges(
-        bandCount: Int,
-        minFrequency: Float,
-        maxFrequency: Float
-    ) -> [(low: Float, high: Float)] {
-
-        let logMin = log10(minFrequency)
-        let logMax = log10(maxFrequency)
-        let step = (logMax - logMin) / Float(bandCount)
-
-        return (0..<bandCount).map { i in
-            let low = pow(10, logMin + step * Float(i))
-            let high = pow(10, logMin + step * Float(i + 1))
-            return (low, high)
-        }
-    }
-
-        
-    func logBandCenters(
-        bandCount: Int,
-        minFrequency: Float,
-        maxFrequency: Float
-    ) -> [Float] {
-
-        let edges = logBandEdges(
-            bandCount: bandCount,
-            minFrequency: minFrequency,
-            maxFrequency: maxFrequency
-        )
-
-        return edges.map { band in
-            sqrt(band.low * band.high)
-        }
-    }
-
-        
-    func formatFrequency(_ hz: Float) -> String {
-        if hz >= 1000 {
-            return String(format: "%.1fkHz", hz / 1000)
-        } else {
-            return String(format: "%.0fHz", hz)
-        }
-    }
-*/
-            
     //MARK: Action methods
     @IBAction func seekForeward(_ sender: NSButton) {
         if playerItem != nil {
@@ -1200,15 +1215,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
     }
-
-    /*
-    @IBAction func setVolume(_ sender: NSSlider) {
-        print("\nSlider Volume: \(sender.floatValue)")
-        self.mediaPlayer.volume = sender.floatValue
-        print("Media Player Volume: \(mediaPlayer.volume)")
-        print("Movie Volume: \(self.movieVolume)")
-    }
-*/
 }
 
 

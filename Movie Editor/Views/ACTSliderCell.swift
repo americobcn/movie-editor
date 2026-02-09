@@ -6,6 +6,9 @@
 //  Copyright © 2020 Américo Cot Toloza. All rights reserved.
 //
 
+import Foundation
+import AppKit
+
 class ACTSliderCell: NSSliderCell {
     required init(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
@@ -15,8 +18,16 @@ class ACTSliderCell: NSSliderCell {
         var rect = aRect
         rect.size.height = CGFloat(5.0)
         let barRadius = CGFloat(0.5)
-        let value = CGFloat((self.doubleValue - self.minValue) / (self.maxValue - self.minValue))
-        let finalWidth = CGFloat(value * (self.controlView!.frame.size.width))
+        
+        // Guard against division by zero
+        let range = self.maxValue - self.minValue
+        guard range != 0 else { return }
+        
+        // Safe optional access to controlView
+        guard let controlView = self.controlView else { return }
+        
+        let value = CGFloat((self.doubleValue - self.minValue) / range)
+        let finalWidth = CGFloat(value * controlView.frame.size.width)
         var leftRect = rect
         leftRect.size.width = finalWidth
         
