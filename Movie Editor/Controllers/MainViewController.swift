@@ -326,7 +326,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         self.playPauseBtn.title = "Play"
                         // Start decay animation instead of immediately stopping
                         self.isDecayingToZero = true
-                        print("STOPPED - Starting decay animation")
                     }
                     break
                 default:
@@ -343,8 +342,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         if let t = self.meterTimer {
                             RunLoop.main.add(t, forMode: .common)
                         }
-                        // self.handleTimer(status: .playing)
-                        print("PLAYING")
                     }
                     break
                 }
@@ -1064,7 +1061,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if allZero {
                 isDecayingToZero = false
                 meterTimer?.invalidate()
-                print("Decay complete - Timer invalidated")
             }
         }
         
@@ -1086,7 +1082,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
             
     func updateMetersView() {
-        print("Update Meters View called")
         volumeSlider.floatValue = 1.0        
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
@@ -1161,9 +1156,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         
     @IBAction func seekBackward(_ sender: NSButton) {
         if playerItem != nil {
-            if mediaPlayer.rate != 0.0 { mediaPlayer.pause()}  //  pause player
-//            if mediaPlayer.currentItem!.canStepBackward { mediaPlayer.currentItem?.step(byCount: -1) }
-            mediaPlayer.currentItem?.seek(to: mediaPlayer.currentTime() - CMTime(value: 1, timescale: CMTimeScale(Int(videoFrameRate))), toleranceBefore: .zero, toleranceAfter: .zero , completionHandler: nil)
+            if mediaPlayer.rate != 0.0 { mediaPlayer.pause() }  // pause player
+            mediaPlayer.currentItem?.seek(to: mediaPlayer.currentTime() - CMTime(value: 1, timescale: CMTimeScale(Int(videoFrameRate))), toleranceBefore: .zero, toleranceAfter: .zero, completionHandler: nil)
         }
     }
     
