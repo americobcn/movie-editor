@@ -9,6 +9,7 @@
 import Foundation
 import AVFoundation
 import AppKit
+import QuartzCore
 
 private var VIEW_CONTROLLER_KVOCONTEXT = 0
 private var CURRENT_TIME_KVOCONTEXT = 0
@@ -68,14 +69,19 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 24 // default value
+    var spectrumBands: Int = 25 // default value
+    
+    // Optimized spectrum display
+    private var smoothedSpectrum: [Float] = []
+    private let spectrumSmoothingAlpha: Float = 0.3 // EMA smoothing factor (0.0-1.0)
+    private var isDecayingToZero: Bool = false // Track if we're in decay animation
     
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
     private var assetReader: AVAssetReader!
     private var assetWriter: AVAssetWriter!
     private var videoTrackOutput: AVAssetReaderTrackOutput!
-    private var audioTrackOutput: AVAssetReaderTrackOutput!     //AVAssetReaderOutput!
+    private var audioTrackOutput: AVAssetReaderTrackOutput! 
     private var audioInput: AVAssetWriterInput!
     private var audioInputQueue: DispatchQueue!
     
@@ -220,6 +226,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         
         spectrumBarHeight = [CGFloat](repeating: 0.0, count: spectrumBands)
         volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
+        smoothedSpectrum = [Float](repeating: -100.0, count: spectrumBands)
     }
     
     override func viewDidLayout() {
@@ -317,20 +324,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 case 0.0:
                     DispatchQueue.main.async {
                         self.playPauseBtn.title = "Play"
-                        self.meterTimer?.invalidate()
-                        //While in pause, set the meters to 0.0
-                        for view in self.metersView {
-                            view.animator().setFrameSize(NSSize(width: 10.0 , height: 0.0))
-                        }
-                        for (_, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-                            view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: 0.0))
-                        }
-                        print("STOPPED")
+                        // Start decay animation instead of immediately stopping
+                        self.isDecayingToZero = true
+                        print("STOPPED - Starting decay animation")
                     }
                     break
                 default:
                     DispatchQueue.main.async {
                         self.playPauseBtn.title = "Stop"
+                        // Reset decay flag when resuming playback
+                        self.isDecayingToZero = false
                         self.meterTimer?.invalidate()
                         self.meterTimer = Timer(timeInterval: 1.0/Double(self.videoFrameRate),
                                                 target: self,
@@ -405,11 +408,14 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
 
     
-    //MARK: Delegate functions                          NEED TO REVISIT, THIS IS NOT NECESARY
+    //MARK: Delegate functions
     func spectrumDidChange(spectrum: [Float], peaks: [Float]) {
-        //print("spectrumDidChange: \(spectrum)")
-        for index in 0..<self.spectrumBands {
-            self.spectrumBarHeight[index] = barHeight(magnitudeDB: spectrum[index], minDB: -50)
+        // Apply exponential moving average smoothing for visual stability
+        let alpha = spectrumSmoothingAlpha
+        for index in 0..<min(self.spectrumBands, spectrum.count) {
+            let targetDB = spectrum[index]
+            smoothedSpectrum[index] = alpha * targetDB + (1.0 - alpha) * smoothedSpectrum[index]
+            self.spectrumBarHeight[index] = barHeight(magnitudeDB: smoothedSpectrum[index], minDB: -50)
         }
         for index in 0..<self.chCount {
             self.volumeBarHeight[index] = barHeight(magnitudeDB: peaks[index], minDB: -120)
@@ -861,16 +867,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 } catch {
                     print("Error: Can't initialize audio tap or attach tap: \(error)")
                 }
-                // let centers = logBandCenters(
-                //     bandCount: self.spectrumBands,
-                //     minFrequency: 20,
-                //     maxFrequency: 24_000
-                // )
-                // var frequencies: [String] = []
-                // for c in centers {
-                //     frequencies.append(formatFrequency( c))
-                // }
-                
             }
                                                                 
             // Now update the instance variables on main thread
@@ -889,12 +885,26 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     
     func resetSpectrumBarsAndMeterViews() {
+        // Reset height arrays
         for index in 0..<self.spectrumBands {
             self.spectrumBarHeight[index] = 0.0
         }
         for index in 0..<self.chCount {
             self.volumeBarHeight[index] = 0.0
         }
+
+        // Reset smoothed spectrum to minimum
+        for index in 0..<self.spectrumBands {
+            self.smoothedSpectrum[index] = -100.0
+        }
+
+        // Reset view layer heights
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for view in spectrumMeters {
+            view.layer?.bounds.size.height = 0.0
+        }
+        CATransaction.commit()
     }
     
         
@@ -909,8 +919,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     break
                 case NOTIF_REPLACE_AUDIO:
                     print("Calling insertAudio")
-                    await insertOrRemoveAudio(loadUrl: url ) // self.audioUrl
-                    break
+                    await insertOrRemoveAudio(loadUrl: url )
                 default:
                     return
                 }
@@ -1016,14 +1025,64 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     @objc func recalculateMeters() {
-            for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: 10.0 , height: (self.volumeBarHeight[idx]) * CGFloat(mediaPlayer.volume)))
+        // Handle decay to zero when playback stops
+        if isDecayingToZero {
+            let decayFactor: CGFloat = 0.85 // Decay to 85% each frame (smooth fade)
+            let minHeight: CGFloat = 0.5 // Stop when below this threshold
+            var allZero = true
+            
+            // Decay spectrum bars
+            for index in 0..<spectrumBands {
+                let currentHeight = spectrumBarHeight[index]
+                if currentHeight > minHeight {
+                    spectrumBarHeight[index] = currentHeight * decayFactor
+                    allZero = false
+                } else {
+                    spectrumBarHeight[index] = 0.0
+                }
             }
+            
+            // Decay volume meters
+            let minHeightCGFloat = CGFloat(minHeight)
+            let decayFactorCGFloat = CGFloat(decayFactor)
+            for index in 0..<chCount {
+                let currentHeight = volumeBarHeight[index]
+                if currentHeight > minHeightCGFloat {
+                    volumeBarHeight[index] = currentHeight * decayFactorCGFloat
+                    allZero = false
+                } else {
+                    volumeBarHeight[index] = 0.0
+                }
+            }
+            
+            // Reset smoothed spectrum gradually
+            for index in 0..<spectrumBands {
+                smoothedSpectrum[index] = smoothedSpectrum[index] * 0.9 // Slower decay for data
+            }
+            
+            // If all bars have reached zero, stop the timer
+            if allZero {
+                isDecayingToZero = false
+                meterTimer?.invalidate()
+                print("Decay complete - Timer invalidated")
+            }
+        }
         
-            for (idx, view) in self.mainSpectrumViewMeters.subviews.enumerated() {
-                view.animator().setFrameSize(NSSize(width: self.spectrumBarWidth , height: self.spectrumBarHeight[idx]))
-                
-            }
+        // Update volume meters (keep using animator for smooth transitions)
+        for (idx, view) in self.mainViewMeters.subviews.enumerated() {
+            view.animator().setFrameSize(NSSize(width: 10.0 , height: (self.volumeBarHeight[idx]) * CGFloat(mediaPlayer.volume)))
+        }
+
+        // Batch update spectrum bars with CATransaction for performance
+        CATransaction.begin()
+        CATransaction.setDisableActions(true) // Disable implicit animations for performance
+
+        for (idx, view) in self.spectrumMeters.enumerated() {
+            let targetHeight = self.spectrumBarHeight[idx]
+            view.layer?.bounds.size.height = targetHeight
+        }
+
+        CATransaction.commit()
     }
             
     func updateMetersView() {
@@ -1044,13 +1103,18 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     
     func createSpectrumView() {
-        //Setting up Spectrum visualizer
+        //Setting up Spectrum visualizer with optimized bars
         let bounds = mainSpectrumViewMeters.bounds
         guard spectrumBands > 0 else { return }
 
         self.spectrumBarWidth = bounds.width / CGFloat(spectrumBands)
 
-        // Reuse existing bars and create any missing ones
+        // Initialize smoothed spectrum array if needed
+        if smoothedSpectrum.count != spectrumBands {
+            smoothedSpectrum = [Float](repeating: -100.0, count: spectrumBands)
+        }
+
+        // Reuse existing views and create any missing ones
         for i in 0..<spectrumBands {
             let xshift = CGFloat(i) * self.spectrumBarWidth
             if i < spectrumMeters.count {
@@ -1062,6 +1126,12 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 mainSpectrumViewMeters.addSubview(barView)
                 spectrumMeters.append(barView)
             }
+        }
+
+        // Remove excess views if spectrumBands decreased
+        while spectrumMeters.count > spectrumBands {
+            let view = spectrumMeters.removeLast()
+            view.removeFromSuperview()
         }
     }
     
@@ -1209,11 +1279,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         scrubSlider.isEnabled = false
         muteButton.isEnabled = false
         view.window?.title = "Americo's Movie Player"
+
+        // Remove meter views
         for view in metersView {
             view.removeFromSuperview()
         }
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
+
+        // Spectrum meters are already removed by mainViewMeters.subviews.removeAll() above
     }
 }
 
