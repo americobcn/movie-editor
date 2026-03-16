@@ -334,14 +334,14 @@ final class AudioTapProcessor {
         self.cachedFFTSize = fftSize
         self.cachedSampleRate = sampleRate
         
-        print("""
-        Log spectrum smooth weighting created:
-        - Bands: \(bandCount)
-        - Frequency range: \(minFrequency)-\(maxFrequency) Hz
-        - Total bins mapped: \(lastBin - firstBin + 1)
-        - Bins contributing per band: \(binsPerBand)
-        - Total weighted contributions: \(totalContributions.map { String(format: "%.1f", $0) })
-        """)
+        // print("""
+        // Log spectrum smooth weighting created:
+        // - Bands: \(bandCount)
+        // - Frequency range: \(minFrequency)-\(maxFrequency) Hz
+        // - Total bins mapped: \(lastBin - firstBin + 1)
+        // - Bins contributing per band: \(binsPerBand)
+        // - Total weighted contributions: \(totalContributions.map { String(format: "%.1f", $0) })
+        // """)
     }
 }
 
