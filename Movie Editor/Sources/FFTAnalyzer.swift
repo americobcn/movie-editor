@@ -33,6 +33,7 @@ final class FFTAnalyzer {
     private var realp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var imagp: UnsafeMutablePointer<Float> // [Float] = [Float]()
     private var splitComplex: DSPSplitComplex
+    private var windowedScratch: UnsafeMutablePointer<Float>
 
     
     private var magnitudes: [[Float]]
@@ -85,26 +86,24 @@ final class FFTAnalyzer {
         
         self.magnitudes = [[Float]](repeating: [Float](repeating: 0, count: spectrumSize), count: chCount)
         
-        self.realp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
-        self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
-        self.realp.initialize(repeating: 0, count: fftSize)
-        self.imagp.initialize(repeating: 0, count: fftSize)
+        let halfSize = fftSize / 2
+        self.realp = UnsafeMutablePointer<Float>.allocate(capacity: halfSize)
+        self.imagp = UnsafeMutablePointer<Float>.allocate(capacity: halfSize)
+        self.realp.initialize(repeating: 0, count: halfSize)
+        self.imagp.initialize(repeating: 0, count: halfSize)
         self.splitComplex = DSPSplitComplex(realp: realp, imagp: imagp)
-        
-        print("""
-                FFT Analyzer initialized:
-                - FFT Size: \(fftSize)
-                - Sample Rate: \(sampleRate) Hz
-                - Spectrum Size: \(spectrumSize)
-                - Window Coherent Gain: \(windowCoherentGain)
-                - Scale Factor (bins 1...N/2-1): \(scaleFactor)
-                - Scale Factor (DC & Nyquist): \(scaleDCNyquist)                
-                """)
+        self.windowedScratch = UnsafeMutablePointer<Float>.allocate(capacity: fftSize)
+        self.windowedScratch.initialize(repeating: 0, count: fftSize)
     }
 
     deinit {
+        let halfSize = fftSize / 2
+        realp.deinitialize(count: halfSize)
         realp.deallocate()
+        imagp.deinitialize(count: halfSize)
         imagp.deallocate()
+        windowedScratch.deinitialize(count: fftSize)
+        windowedScratch.deallocate()
         vDSP_destroy_fftsetup(fftSetup)
     }
 
@@ -121,6 +120,9 @@ final class FFTAnalyzer {
             return ([], [])
         }
         
+        processingLock.lock()
+        defer { processingLock.unlock() }
+
         for (channel, audioBuffer) in UnsafeMutableAudioBufferListPointer(bufferList).enumerated() {
             let requiredBytes = framesIn * MemoryLayout<Float>.stride
             guard audioBuffer.mDataByteSize >= requiredBytes else {
@@ -130,26 +132,25 @@ final class FFTAnalyzer {
             guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesIn) else {
                 continue  // Skip this channel if buffer is invalid
             }
-            
+
             //Calculate maximun amplitude of the buffer
             var peak: Float = 0
             vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesIn))
-            
-            processingLock.lock()
-            self.channelsPeak[channel] =  peak
-                                    
+            self.channelsPeak[channel] = peak
+
             /// CALCULATE FFT
-            // 1. Apply Hann window to input samples
+            // 1. Apply Hann window into scratch buffer
             let samplesToProcess = min(framesIn, fftSize)
-            vDSP_vmul(floatBuffer, 1, hannWindow, 1, splitComplex.realp, 1, vDSP_Length(samplesToProcess))
-            
-            // 2. Zero-pad if input is shorter than FFT size
+            vDSP_vmul(floatBuffer, 1, hannWindow, 1, windowedScratch, 1, vDSP_Length(samplesToProcess))
+
+            // 2. Zero-pad scratch buffer if needed
             if samplesToProcess < fftSize {
-                vDSP_vclr(splitComplex.realp.advanced(by: samplesToProcess), 1, vDSP_Length(fftSize - samplesToProcess))
+                vDSP_vclr(windowedScratch.advanced(by: samplesToProcess), 1, vDSP_Length(fftSize - samplesToProcess))
             }
-            
-            // 3. Zero-fill imaginary part (real-to-complex FFT)
-            vDSP_vclr(splitComplex.imagp, 1, vDSP_Length(fftSize))
+
+            // 3. Pack into split-complex format: realp[k] = x[2k], imagp[k] = x[2k+1]
+            let scratchAsComplex = UnsafePointer<DSPComplex>(OpaquePointer(windowedScratch))
+            vDSP_ctoz(scratchAsComplex, 2, &splitComplex, 1, vDSP_Length(fftSize / 2))
                                     
             // 4. Perform in-place real-to-complex FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
@@ -174,7 +175,7 @@ final class FFTAnalyzer {
             magnitudes[channel][0] = dc
             magnitudes[channel][spectrumSize - 1] = nyquist
                         
-            // 6. Apply proper scaling factors
+            // 7. Apply proper scaling factors
             magnitudes[channel].withUnsafeMutableBufferPointer { magPtr in
                 guard let basePtr = magPtr.baseAddress else { return }
                 
@@ -191,7 +192,6 @@ final class FFTAnalyzer {
                 vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq, basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
             // print("DC bin: \(magnitudes[channel][0])\tNyquist bin: \(magnitudes[channel][spectrumSize - 1])") //
-            processingLock.unlock()
         }
         return (magnitudes.map { $0 }, Array(channelsPeak))
     }
@@ -202,7 +202,7 @@ final class FFTAnalyzer {
 }
 
 
-private extension Int {
+extension Int {
     var isPowerOfTwo: Bool {
         (self & (self - 1)) == 0 && self > 0
     }
