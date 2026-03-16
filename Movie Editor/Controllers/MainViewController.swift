@@ -62,6 +62,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var metersView = [MeterView]()
     var spectrumMeters = [SpectrumBarView]()
     var spectrumBarWidth: CGFloat = 0.0
+    var meterBarWidth: CGFloat = 5.0
     var spectrumBarHeight: [CGFloat] = []
     var volumeBarHeight: [CGFloat] = []
     var audioTap: AudioTapProcessor!
@@ -401,7 +402,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 self.smoothedSpectrum[index] = alpha * spectrum[index] + (1.0 - alpha) * self.smoothedSpectrum[index]
                 self.spectrumBarHeight[index] = self.barHeight(magnitudeDB: self.smoothedSpectrum[index], minDB: -50)
             }
-            for index in 0..<self.chCount {
+            for index in 0..<min(self.chCount, self.volumeBarHeight.count, peaks.count) {
                 self.volumeBarHeight[index] = self.barHeight(magnitudeDB: peaks[index], minDB: -120)
             }
         }
@@ -520,6 +521,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     }
                     chCount = Int((asbd?.pointee.mChannelsPerFrame)!)
                     loadedAudioTrackID = audioTrack.trackID
+                    
                 } catch {
                     print("Can't get Audio Format Description")
                 }
@@ -562,7 +564,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("Error: Can't initialize audio tap or attach tap: \(error)")
             }
             self.audioTap.delegate = self
-            updateMetersView()
+            setupMetersView()
         } else {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
         }
@@ -793,6 +795,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if let asbd = self.asbd {
                 self.chCount = Int(asbd.pointee.mChannelsPerFrame)
                 self.audioSampleRate = Float(asbd.pointee.mSampleRate)
+                setupMetersView()
             } else {
                 print("ASBD is still nil, returning")
                return
@@ -874,7 +877,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         for index in 0..<self.spectrumBands {
             self.spectrumBarHeight[index] = 0.0
         }
-        for index in 0..<self.chCount {
+        for index in 0..<min(self.chCount, self.volumeBarHeight.count) {
             self.volumeBarHeight[index] = 0.0
         }
 
@@ -1029,7 +1032,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             // Decay volume meters
             let minHeightCGFloat = CGFloat(minHeight)
             let decayFactorCGFloat = CGFloat(decayFactor)
-            for index in 0..<chCount {
+            for index in 0..<min(chCount, volumeBarHeight.count) {
                 let currentHeight = volumeBarHeight[index]
                 if currentHeight > minHeightCGFloat {
                     volumeBarHeight[index] = currentHeight * decayFactorCGFloat
@@ -1052,15 +1055,17 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             }
         }
         
-        // Update volume meters (keep using animator for smooth transitions)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        // Update volume meters
         for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-            view.animator().setFrameSize(NSSize(width: 10.0 , height: (self.volumeBarHeight[idx]) * CGFloat(mediaPlayer.volume)))
+            guard idx < self.volumeBarHeight.count else { break }
+            let targetHeight = self.volumeBarHeight[idx] * CGFloat(mediaPlayer.volume)
+            view.layer?.bounds.size.height = targetHeight
         }
 
-        // Batch update spectrum bars with CATransaction for performance
-        CATransaction.begin()
-        CATransaction.setDisableActions(true) // Disable implicit animations for performance
-
+        // Update spectrum bars
         for (idx, view) in self.spectrumMeters.enumerated() {
             let targetHeight = self.spectrumBarHeight[idx]
             view.layer?.bounds.size.height = targetHeight
@@ -1069,18 +1074,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         CATransaction.commit()
     }
             
-    func updateMetersView() {
-        volumeSlider.floatValue = 1.0        
+    func setupMetersView() {
+        volumeSlider.floatValue = 1.0
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
-        //Adding meterViews
-        if (metersView.count == 0 && mainViewMeters.subviews.count == 0) {
-            for i in 0..<chCount {
-                metersView.append(MeterView())
-                let shift = i * 11
-                metersView[i].setFrameOrigin(NSPoint(x: Double(shift), y: 0.0 ))
-                mainViewMeters.addSubview(metersView[i])
-            }
+
+        // Re-initialize volumeBarHeight for the actual channel count of this file
+        volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
+
+        // Fit all meters into the fixed container width with 1pt spacing between bars
+        let spacing: CGFloat = 1.0
+        let containerWidth = mainViewMeters.bounds.width
+        let totalSpacing = spacing * CGFloat(max(chCount + 1, 2))
+        meterBarWidth = min(18.0, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
+        for i in (0..<chCount).reversed() {
+            let xOrigin = containerWidth -  CGFloat(i) * (meterBarWidth + spacing)
+            let meter = MeterView()
+            meter.frame = NSRect(x: xOrigin, y: 0.0, width: meterBarWidth, height: 0.0)
+            metersView.append(meter)
+            mainViewMeters.addSubview(meter)
         }
     }
     

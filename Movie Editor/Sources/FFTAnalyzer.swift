@@ -37,7 +37,7 @@ final class FFTAnalyzer {
 
     
     private var magnitudes: [[Float]]
-    private var channelsPeak: [Float]  //chDecibelsPeaks
+    private var channelsPeak: [Float]
     private let processingLock = NSLock()
 
     // MARK: - Errors

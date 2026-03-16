@@ -17,8 +17,8 @@ class SpectrumBarView: NSView {
         // self.layer?.bounds = CGRect(x: 0.0, y: 0.0, width: 20.0, height: 130.0)
         self.layer?.backgroundColor = NSColor.green.cgColor
         self.layer?.borderColor = NSColor.black.cgColor
-        self.layer?.borderWidth = 1
-        self.layer?.cornerRadius = 2.0
+        self.layer?.borderWidth = 0.5
+        self.layer?.cornerRadius = 3.0
 
     }
     
