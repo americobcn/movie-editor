@@ -12,7 +12,6 @@ import AppKit
 import QuartzCore
 
 private var VIEW_CONTROLLER_KVOCONTEXT = 0
-private var CURRENT_TIME_KVOCONTEXT = 0
 
 class MainViewController: NSViewController, ExportSettingsPanelControllerDelegate,  AudioSpectrumProviderDelegate { //AudioLevelProviderDelegate,
     
@@ -57,33 +56,28 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     private var timeObserver: Any?
     private var notificationObservers: [NSObjectProtocol] = []
     private var areObserversAdded = false
-    var videoOutputSettings: [String: Any]?
     var hasAudioTrack: Bool = false
         
     //MARK: Tap and Metering related Variables
     var metersView = [MeterView]()
     var spectrumMeters = [SpectrumBarView]()
     var spectrumBarWidth: CGFloat = 0.0
+    var meterBarWidth: CGFloat = 5.0
     var spectrumBarHeight: [CGFloat] = []
     var volumeBarHeight: [CGFloat] = []
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 25 // default value
+    var spectrumBands: Int = 24 // default value
     
     // Optimized spectrum display
     private var smoothedSpectrum: [Float] = []
-    private let spectrumSmoothingAlpha: Float = 0.3 // EMA smoothing factor (0.0-1.0)
+    private let spectrumSmoothingAlpha: Float = 0.4 // EMA smoothing factor (0.0-1.0)
     private var isDecayingToZero: Bool = false // Track if we're in decay animation
+    private var lastSpectrumBounds: CGRect = .zero
     
     //MARK: Asset related vars
     private var mediaAsset: AVAsset!
-    private var assetReader: AVAssetReader!
-    private var assetWriter: AVAssetWriter!
-    private var videoTrackOutput: AVAssetReaderTrackOutput!
-    private var audioTrackOutput: AVAssetReaderTrackOutput! 
-    private var audioInput: AVAssetWriterInput!
-    private var audioInputQueue: DispatchQueue!
     
     //MARK: Export related vars
     var exportPreset: String = "AVAssetExportPresetHighestQuality"      // Default export preset if not changed in ExportSettingsController
@@ -92,7 +86,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     //MARK: Media descriptors and movie properties
     private var duration:CMTime? //= CMTime.zero
-    private var mediaPreferedRate: Float?
     
     var mediaTimeScale: CMTimeScale?
     var mediaPlayerRate: Float = 0.0
@@ -113,10 +106,6 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var movieCodec: String = ""
     var videoFrameRate: Float = 0.0
     var chCount: Int = 2
-    
-    enum playerStatus {
-        case playing, stopped
-    }
     
     //Seek Related vars
     private var isSeekInProgress = false
@@ -231,7 +220,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     override func viewDidLayout() {
         super.viewDidLayout()
-        // Create spectrum view after layout is complete and bounds are valid
+        let newBounds = mainSpectrumViewMeters.bounds
+        guard newBounds != lastSpectrumBounds else { return }
+        lastSpectrumBounds = newBounds
         createSpectrumView()
     }
     
@@ -334,14 +325,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                         // Reset decay flag when resuming playback
                         self.isDecayingToZero = false
                         self.meterTimer?.invalidate()
-                        self.meterTimer = Timer(timeInterval: 1.0/Double(self.videoFrameRate),
-                                                target: self,
-                                                selector: #selector(self.recalculateMeters),
-                                                userInfo: nil,
-                                                repeats: true)
-                        if let t = self.meterTimer {
-                            RunLoop.main.add(t, forMode: .common)
+                        let timer = Timer(timeInterval: 1.0 / Double(self.videoFrameRate), repeats: true) { [weak self] _ in
+                            self?.recalculateMeters()
                         }
+                        RunLoop.main.add(timer, forMode: .common)
+                        self.meterTimer = timer
                     }
                     break
                 }
@@ -407,15 +395,16 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     //MARK: Delegate functions
     func spectrumDidChange(spectrum: [Float], peaks: [Float]) {
-        // Apply exponential moving average smoothing for visual stability
-        let alpha = spectrumSmoothingAlpha
-        for index in 0..<min(self.spectrumBands, spectrum.count) {
-            let targetDB = spectrum[index]
-            smoothedSpectrum[index] = alpha * targetDB + (1.0 - alpha) * smoothedSpectrum[index]
-            self.spectrumBarHeight[index] = barHeight(magnitudeDB: smoothedSpectrum[index], minDB: -50)
-        }
-        for index in 0..<self.chCount {
-            self.volumeBarHeight[index] = barHeight(magnitudeDB: peaks[index], minDB: -120)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isDecayingToZero else { return }
+            let alpha = self.spectrumSmoothingAlpha
+            for index in 0..<min(self.spectrumBands, spectrum.count) {
+                self.smoothedSpectrum[index] = alpha * spectrum[index] + (1.0 - alpha) * self.smoothedSpectrum[index]
+                self.spectrumBarHeight[index] = self.barHeight(magnitudeDB: self.smoothedSpectrum[index], minDB: -50)
+            }
+            for index in 0..<min(self.chCount, self.volumeBarHeight.count, peaks.count) {
+                self.volumeBarHeight[index] = self.barHeight(magnitudeDB: peaks[index], minDB: -120)
+            }
         }
     }
     
@@ -532,6 +521,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                     }
                     chCount = Int((asbd?.pointee.mChannelsPerFrame)!)
                     loadedAudioTrackID = audioTrack.trackID
+                    
                 } catch {
                     print("Can't get Audio Format Description")
                 }
@@ -574,7 +564,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 print("Error: Can't initialize audio tap or attach tap: \(error)")
             }
             self.audioTap.delegate = self
-            updateMetersView()
+            setupMetersView()
         } else {
             movieInfoDisplay.stringValue = getVideoTrackDescription(videoFormatDesc: videoFormatDesc)
         }
@@ -805,6 +795,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if let asbd = self.asbd {
                 self.chCount = Int(asbd.pointee.mChannelsPerFrame)
                 self.audioSampleRate = Float(asbd.pointee.mSampleRate)
+                setupMetersView()
             } else {
                 print("ASBD is still nil, returning")
                return
@@ -886,7 +877,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         for index in 0..<self.spectrumBands {
             self.spectrumBarHeight[index] = 0.0
         }
-        for index in 0..<self.chCount {
+        for index in 0..<min(self.chCount, self.volumeBarHeight.count) {
             self.volumeBarHeight[index] = 0.0
         }
 
@@ -908,7 +899,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     @objc func handleDragNotification(_ notification: Notification) {
         if let url:URL = notification.object as? URL {
             self.audioUrl = url
-            Task {
+            Task { [weak self] in
+                guard let self else { return }
                 switch notification.name.rawValue {
                 case NOTIF_OPENFILE:
                     print("Calling loadMovieFromURL")
@@ -927,17 +919,15 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     
     func readAndWriteSamples(inputAsset: AVAsset, destURL: URL) async {
         let exporter = MediaExporter(progressIndicator: progressIndicator)
-        Task {
-            do {
-                let outputURL = try await exporter.exportMedia(
-                    from: inputAsset,
-                    to: destURL,
-                    fileExtension: sourceUrlExtension
-                )
-                print("Export completed: \(outputURL)")
-            } catch {
-                print("Export failed: \(error.localizedDescription)")
-            }
+        do {
+            let outputURL = try await exporter.exportMedia(
+                from: inputAsset,
+                to: destURL,
+                fileExtension: sourceUrlExtension
+            )
+            print("Export completed: \(outputURL)")
+        } catch {
+            print("Export failed: \(error.localizedDescription)")
         }
     }
     
@@ -1042,7 +1032,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             // Decay volume meters
             let minHeightCGFloat = CGFloat(minHeight)
             let decayFactorCGFloat = CGFloat(decayFactor)
-            for index in 0..<chCount {
+            for index in 0..<min(chCount, volumeBarHeight.count) {
                 let currentHeight = volumeBarHeight[index]
                 if currentHeight > minHeightCGFloat {
                     volumeBarHeight[index] = currentHeight * decayFactorCGFloat
@@ -1061,18 +1051,21 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
             if allZero {
                 isDecayingToZero = false
                 meterTimer?.invalidate()
+                meterTimer = nil
             }
         }
         
-        // Update volume meters (keep using animator for smooth transitions)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        // Update volume meters
         for (idx, view) in self.mainViewMeters.subviews.enumerated() {
-            view.animator().setFrameSize(NSSize(width: 10.0 , height: (self.volumeBarHeight[idx]) * CGFloat(mediaPlayer.volume)))
+            guard idx < self.volumeBarHeight.count else { break }
+            let targetHeight = self.volumeBarHeight[idx] * CGFloat(mediaPlayer.volume)
+            view.layer?.bounds.size.height = targetHeight
         }
 
-        // Batch update spectrum bars with CATransaction for performance
-        CATransaction.begin()
-        CATransaction.setDisableActions(true) // Disable implicit animations for performance
-
+        // Update spectrum bars
         for (idx, view) in self.spectrumMeters.enumerated() {
             let targetHeight = self.spectrumBarHeight[idx]
             view.layer?.bounds.size.height = targetHeight
@@ -1081,18 +1074,25 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         CATransaction.commit()
     }
             
-    func updateMetersView() {
-        volumeSlider.floatValue = 1.0        
+    func setupMetersView() {
+        volumeSlider.floatValue = 1.0
         metersView.removeAll()
         mainViewMeters.subviews.removeAll()
-        //Adding meterViews
-        if (metersView.count == 0 && mainViewMeters.subviews.count == 0) {
-            for i in 0..<chCount {
-                metersView.append(MeterView())
-                let shift = i * 11
-                metersView[i].setFrameOrigin(NSPoint(x: Double(shift), y: 0.0 ))
-                mainViewMeters.addSubview(metersView[i])
-            }
+
+        // Re-initialize volumeBarHeight for the actual channel count of this file
+        volumeBarHeight = [CGFloat](repeating: 0.0, count: chCount)
+
+        // Fit all meters into the fixed container width with 1pt spacing between bars
+        let spacing: CGFloat = 1.0
+        let containerWidth = mainViewMeters.bounds.width
+        let totalSpacing = spacing * CGFloat(max(chCount + 1, 2))
+        meterBarWidth = min(18.0, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
+        for i in (0..<chCount).reversed() {
+            let xOrigin = containerWidth -  CGFloat(i) * (meterBarWidth + spacing)
+            let meter = MeterView()
+            meter.frame = NSRect(x: xOrigin, y: 0.0, width: meterBarWidth, height: 0.0)
+            metersView.append(meter)
+            mainViewMeters.addSubview(meter)
         }
     }
     
@@ -1181,12 +1181,17 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     }
     
     @IBAction func seekToEnd(_ sender: NSButton) {
-        Task {
-            let end = try await mediaAsset.load(.duration)
-            if playerItem != nil {
-                mediaPlayer.pause()
-                await mediaPlayer.seek(to: end, toleranceBefore: .zero , toleranceAfter:  .zero)
-                movieCurrentTime = scrubSlider.maxValue
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let end = try await mediaAsset.load(.duration)
+                if playerItem != nil {
+                    mediaPlayer.pause()
+                    await mediaPlayer.seek(to: end, toleranceBefore: .zero, toleranceAfter: .zero)
+                    movieCurrentTime = scrubSlider.maxValue
+                }
+            } catch {
+                print("seekToEnd failed: \(error)")
             }
         }
     }
@@ -1298,30 +1303,6 @@ extension AVPlayer {
     
 }
 
-extension AVAssetTrack {
-    var mediaFormat: String {
-        var format = ""
-        Task {
-            let descriptions = try await self.load(.formatDescriptions)
-            for (index, formatDesc) in descriptions.enumerated() {
-                // Get String representation of media type (vide, soun, sbtl, etc.)
-                let type =
-                    CMFormatDescriptionGetMediaType(formatDesc).toString()
-                // Get String representation media subtype (avc1, aac, tx3g, etc.)
-                let subType =
-                    CMFormatDescriptionGetMediaSubType(formatDesc).toString()
-                // Format string as type/subType
-                format += "\(type)/\(subType)"
-                // Comma separate if more than one format description
-                if index < descriptions.count - 1 {
-                    format += ","
-                }
-            }
-        }
-        return format
-    }
-}
- 
 extension FourCharCode {
     // Create a String representation of a FourCC
     func toString() -> String {

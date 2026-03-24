@@ -329,17 +329,9 @@ DQ
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     </progressIndicator>
                     <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2nr-Iy-QdM">
-                        <rect key="frame" x="854" y="20" width="22" height="132"/>
+                        <rect key="frame" x="700" y="20" width="125" height="132"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     </customView>
-                    <slider horizontalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yW3-lc-I2l">
-                        <rect key="frame" x="835" y="18" width="13" height="136"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
-                        <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" maxValue="1" doubleValue="1" tickMarkPosition="left" sliderType="linear" id="0sw-cN-6l5" customClass="ACTVerticalSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
-                        <connections>
-                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieVolume" id="R7x-lw-Yji"/>
-                        </connections>
-                    </slider>
                     <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="6vT-dS-BSV">
                         <rect key="frame" x="837" y="159" width="37" height="30"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -355,6 +347,14 @@ DQ
                         <rect key="frame" x="248" y="20" width="400" height="132"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     </customView>
+                    <slider horizontalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yW3-lc-I2l">
+                        <rect key="frame" x="849" y="18" width="13" height="136"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
+                        <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" maxValue="1" doubleValue="1" tickMarkPosition="left" sliderType="linear" id="0sw-cN-6l5" customClass="ACTVerticalSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
+                        <connections>
+                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieVolume" id="R7x-lw-Yji"/>
+                        </connections>
+                    </slider>
                 </subviews>
             </view>
             <point key="canvasLocation" x="-643" y="-126.5"/>
