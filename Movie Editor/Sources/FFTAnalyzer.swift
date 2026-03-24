@@ -191,7 +191,6 @@ final class FFTAnalyzer {
                 var scaleNyq = scaleDCNyquist
                 vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq, basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
-            // print("DC bin: \(magnitudes[channel][0])\tNyquist bin: \(magnitudes[channel][spectrumSize - 1])") //
         }
         return (magnitudes.map { $0 }, Array(channelsPeak))
     }

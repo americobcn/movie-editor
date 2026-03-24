@@ -59,8 +59,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var hasAudioTrack: Bool = false
         
     //MARK: Tap and Metering related Variables
-    var metersView = [MeterView]()
-    var spectrumMeters = [SpectrumBarView]()
+    var metersView = [BarView]()
+    var spectrumMeters = [BarView]()
     var spectrumBarWidth: CGFloat = 0.0
     var meterBarWidth: CGFloat = 5.0
     var spectrumBarHeight: [CGFloat] = []
@@ -204,6 +204,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //Setup Meters View
         mainViewMeters.wantsLayer = true
         mainViewMeters.canDrawConcurrently = true
+        mainViewMeters.layer?.backgroundColor = NSColor.black.cgColor
+        mainViewMeters.layer?.cornerRadius = 5.0
         
         //Setup SpectrumView
         mainSpectrumViewMeters.wantsLayer = true
@@ -1085,11 +1087,11 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         // Fit all meters into the fixed container width with 1pt spacing between bars
         let spacing: CGFloat = 1.0
         let containerWidth = mainViewMeters.bounds.width
-        let totalSpacing = spacing * CGFloat(max(chCount + 1, 2))
-        meterBarWidth = min(18.0, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
-        for i in (0..<chCount).reversed() {
+        let totalSpacing = spacing * CGFloat(chCount + 1)
+        meterBarWidth = min(18, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
+        for i in (1...chCount).reversed() {
             let xOrigin = containerWidth -  CGFloat(i) * (meterBarWidth + spacing)
-            let meter = MeterView()
+            let meter = BarView()
             meter.frame = NSRect(x: xOrigin, y: 0.0, width: meterBarWidth, height: 0.0)
             metersView.append(meter)
             mainViewMeters.addSubview(meter)
@@ -1116,7 +1118,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
                 let barView = spectrumMeters[i]
                 barView.frame = NSRect(x: xshift, y: 0.0, width: self.spectrumBarWidth, height: 0.0)
             } else {
-                let barView = SpectrumBarView()
+                let barView = BarView()
                 barView.frame = NSRect(x: xshift, y: 0.0, width: self.spectrumBarWidth, height: 0.0)
                 mainSpectrumViewMeters.addSubview(barView)
                 spectrumMeters.append(barView)
