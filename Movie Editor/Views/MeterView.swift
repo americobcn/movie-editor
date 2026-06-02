@@ -14,6 +14,7 @@ class MeterView: NSView {
         super.init(frame: frame)
         self.wantsLayer = true
         self.canDrawConcurrently = true
+        self.layer?.backgroundColor = NSColor.green.cgColor
         self.layer?.borderColor = NSColor.black.cgColor
         self.layer?.borderWidth = 0.5
         self.layer?.cornerRadius = 3.0
@@ -21,12 +22,7 @@ class MeterView: NSView {
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        layer?.backgroundColor = NSColor.green.cgColor
-    }
+    }    
+    
 }
 

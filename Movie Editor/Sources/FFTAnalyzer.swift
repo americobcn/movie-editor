@@ -63,6 +63,7 @@ final class FFTAnalyzer {
         guard let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else {
             throw FFTError.setupFailed
         }
+        
         self.fftSetup = setup
         
         // Initialize Hanning Window
@@ -129,15 +130,16 @@ final class FFTAnalyzer {
                 print("Warning: Buffer too small. Expected \(requiredBytes) bytes, got \(audioBuffer.mDataByteSize)")
                 continue
             }
+            
             guard let floatBuffer = audioBuffer.mData?.bindMemory(to: Float.self, capacity: framesIn) else {
                 continue  // Skip this channel if buffer is invalid
             }
-
+            
             //Calculate maximun amplitude of the buffer
             var peak: Float = 0
             vDSP_maxmgv(floatBuffer, 1, &peak, vDSP_Length(framesIn))
             self.channelsPeak[channel] = peak
-
+            
             /// CALCULATE FFT
             // 1. Apply Hann window into scratch buffer
             let samplesToProcess = min(framesIn, fftSize)
@@ -154,9 +156,7 @@ final class FFTAnalyzer {
                                     
             // 4. Perform in-place real-to-complex FFT
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
-                            
-            
-            
+                                                    
             // 5. Extract DC and Nyquist (stored in packed format by vDSP)
             // After vDSP_fft_zrip: DC is in realp[0], Nyquist is in imagp[0]
             let dc = abs(splitComplex.realp[0])
@@ -191,8 +191,8 @@ final class FFTAnalyzer {
                 var scaleNyq = scaleDCNyquist
                 vDSP_vsmul(basePtr.advanced(by: spectrumSize - 1), 1, &scaleNyq, basePtr.advanced(by: spectrumSize - 1), 1, 1)
             }
-            // print("DC bin: \(magnitudes[channel][0])\tNyquist bin: \(magnitudes[channel][spectrumSize - 1])") //
         }
+        
         return (magnitudes.map { $0 }, Array(channelsPeak))
     }
     

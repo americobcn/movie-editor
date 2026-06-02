@@ -68,7 +68,7 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
     var audioTap: AudioTapProcessor!
     var meterTimer: Timer?
     var audioSampleRate: Float!
-    var spectrumBands: Int = 24 // default value
+    var spectrumBands: Int = 32 // default value
     
     // Optimized spectrum display
     private var smoothedSpectrum: [Float] = []
@@ -204,6 +204,8 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         //Setup Meters View
         mainViewMeters.wantsLayer = true
         mainViewMeters.canDrawConcurrently = true
+        mainViewMeters.layer?.backgroundColor = NSColor.black.cgColor
+        mainViewMeters.layer?.cornerRadius = 5.0
         
         //Setup SpectrumView
         mainSpectrumViewMeters.wantsLayer = true
@@ -1086,8 +1088,9 @@ class MainViewController: NSViewController, ExportSettingsPanelControllerDelegat
         let spacing: CGFloat = 1.0
         let containerWidth = mainViewMeters.bounds.width
         let totalSpacing = spacing * CGFloat(max(chCount + 1, 2))
-        meterBarWidth = min(18.0, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
-        for i in (0..<chCount).reversed() {
+        // meterBarWidth = min(18.0, floor((containerWidth - totalSpacing) / CGFloat(chCount)))
+        meterBarWidth = floor((containerWidth - totalSpacing) / CGFloat(chCount))
+        for i in (1...chCount).reversed() {
             let xOrigin = containerWidth -  CGFloat(i) * (meterBarWidth + spacing)
             let meter = MeterView()
             meter.frame = NSRect(x: xOrigin, y: 0.0, width: meterBarWidth, height: 0.0)
