@@ -21,43 +21,35 @@ There are no unit tests in this project.
 
 ## Architecture
 
-**Movie Editor** is a macOS AppKit app (not SwiftUI) for non-destructive video editing with audio replacement and real-time spectrum visualization. It is a mixed Swift/Objective-C target with no external dependencies—only Apple frameworks.
+**Movie Editor** is a macOS SwiftUI app (SwiftUI `App` lifecycle, no XIB/storyboard, no Objective-C) for non-destructive video editing with audio replacement and real-time spectrum visualization. It uses only Apple frameworks. Swift 5 language mode, macOS 15.6 deployment target.
 
 ### Layer Summary
 
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| Controllers | `MainViewController.swift`, `ExportSettingsPanelController.swift` | UI coordination, playback, export workflow |
-| Views | `PlayerView.swift`, `MeterView.swift`, `SpectrumBarView.swift`, `ACTSliderCell.swift` | Custom NSView subclasses |
+| App | `App/MovieEditorApp.swift` | `@main`, single `Window`, menu `.commands`, `Settings` scene |
+| Models | `Models/PlayerModel.swift`, `MeterModel.swift`, `MediaInfo.swift`, `ExportCodec.swift` | `@MainActor @Observable` state and logic: AVPlayer, loading, transport, seeking, audio replace, save/export, meter levels, info text, export codec |
+| Views | `Views/ContentView.swift`, `TransportBar.swift`, `VideoSurface.swift`, `SpectrumView.swift`, `LevelMetersView.swift`, `ExportSettingsView.swift` | SwiftUI UI. `VideoSurface` wraps a bare `AVPlayerLayer` in an `NSViewRepresentable`; meters are `Canvas` views |
 | Audio DSP | `Sources/FFTAnalyzer.swift`, `Sources/AudioTapProcessor.swift` | Real-time FFT spectrum analysis via `MTAudioProcessingTap` |
 | Export | `Sources/MediaExporter.swift` | Non-destructive AVAssetReader/AVAssetWriter export |
 | Utilities | `Sources/TagEditor.swift` | Binary hev1→hvc1 HEVC tag correction |
-| ObjC Bridge | `Obective C/DictionaryKey.h/.m` | Notification name constants |
 
 ### Key Data Flow
 
 **Spectrum Visualization:**
-`MTAudioProcessingTap` (MediaToolbox) → `FFTAnalyzer` (Accelerate/vDSP, Hann windowing) → `AudioTapProcessor.makeLogSpectrum()` (log-spaced bands, throttled to 30 FPS) → `AudioSpectrumProviderDelegate` → `SpectrumBarView` height updates on main thread.
+`MTAudioProcessingTap` (MediaToolbox) → `FFTAnalyzer` (Accelerate/vDSP, Hann windowing) → `AudioTapProcessor.makeLogSpectrum()` (log-spaced bands, throttled to 30 FPS) → `AudioSpectrumProviderDelegate` (implemented by `MeterModel`) → main-thread smoothing → `spectrumLevels` / `channelLevels` (0...1) → `SpectrumView` / `LevelMetersView`. When playback pauses, `MeterModel` fades the bars out with a timer.
 
 **Audio Replacement:**
-User drags audio file → `NOTIF_REPLACE_AUDIO` (NotificationCenter) → `MainViewController` builds `AVMutableComposition` with original video + new audio → `MediaExporter` writes pass-through video + AAC-re-encoded audio.
+Audio file dropped on the video (`.dropDestination` in `ContentView`) → `PlayerModel.handleDrop` → `checkFileType` → `insertOrRemoveAudio(url:)` builds an `AVMutableComposition` with original video + new audio and attaches a new tap. Video files dropped or opened load via `loadMovie(url:)`.
 
 **Export:**
-`MediaExporter` uses separate `AVAssetReader`/`AVAssetWriter` instances on background dispatch queues. Video is always pass-through (no transcode). Audio is re-encoded to AAC.
-
-### Notification Constants (ObjC)
-
-Defined in `DictionaryKey.h/.m` and imported via the bridging header:
-- `NOTIF_OPENFILE` — load a video file
-- `NOTIF_REPLACE_AUDIO` — replace audio track
-- `NOTIF_NEW_ASSET` — asset finished loading
-- `NOTIF_TOGGLETIMECODEDISPLAY` — toggle timecode display
+Save (`PlayerModel.save`) uses `MediaExporter` with separate `AVAssetReader`/`AVAssetWriter` on background queues: video pass-through, audio re-encoded to AAC. Export (`exportMovie`) uses `AVAssetExportSession` with the preset of the codec chosen in Settings (`ExportCodec`, stored with `@AppStorage`).
 
 ### Threading Model
 
-- Audio tap callbacks run on a dedicated background queue
+- Audio tap callbacks run on a dedicated background queue; `AudioTapProcessor` hops to the main queue via `MeterModel.spectrumDidChange`
 - `FFTAnalyzer` uses `NSLock` to protect buffer access
-- All `SpectrumBarView`/`MeterView` updates must be dispatched to `DispatchQueue.main`
+- `PlayerModel` and `MeterModel` are `@MainActor`; AVPlayer observers (`rate`, periodic time) hop to the main actor
 - Export uses two separate `DispatchQueue`s (video + audio) coordinated via `DispatchGroup`/semaphore
 
 ### FFT Details
@@ -71,6 +63,7 @@ Defined in `DictionaryKey.h/.m` and imported via the bridging header:
 - `MARK:` comments to separate logical sections within large files
 - `async/await` preferred over completion handlers
 - `@MainActor` for any UI updates triggered from async contexts
+- `@Observable` models (not `ObservableObject`); mark non-UI state `@ObservationIgnored`
 - Weak captures `[weak self]` in closures stored by objects
 
 ## graphify

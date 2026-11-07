@@ -1,4 +1,0 @@
-extern NSString *NOTIF_OPENFILE;
-extern NSString *NOTIF_REPLACE_AUDIO;
-extern NSString *NOTIF_NEW_ASSET;
-extern NSString *NOTIF_TOGGLETIMECODEDISPLAY;

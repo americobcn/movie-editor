@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */; };
-		1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */; };
 		1E58873C244C59E2003C2430 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E58873B244C59E2003C2430 /* Assets.xcassets */; };
 		1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */; };
 		1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC568AB2EF9D902002D2724 /* TagEditor.swift */; };
@@ -28,9 +27,6 @@
 
 /* Begin PBXFileReference section */
 		1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFTAnalyzer.swift; sourceTree = "<group>"; };
-		1E48DC1A244F2D2800D72F2E /* Movie Editor-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Movie Editor-Bridging-Header.h"; sourceTree = "<group>"; };
-		1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DictionaryKey.m; sourceTree = "<group>"; };
-		1E48DC1C244F2D2900D72F2E /* DictionaryKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DictionaryKey.h; sourceTree = "<group>"; };
 		1E588736244C59E0003C2430 /* Americo's Movie Player.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Americo's Movie Player.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1E58873B244C59E2003C2430 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1E588740244C59E2003C2430 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -86,16 +82,6 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		1E4C07AD277A7E1100D62E84 /* Obective C */ = {
-			isa = PBXGroup;
-			children = (
-				1E48DC1C244F2D2900D72F2E /* DictionaryKey.h */,
-				1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */,
-				1E48DC1A244F2D2800D72F2E /* Movie Editor-Bridging-Header.h */,
-			);
-			path = "Obective C";
-			sourceTree = "<group>";
-		};
 		1E58872D244C59E0003C2430 = {
 			isa = PBXGroup;
 			children = (
@@ -117,7 +103,6 @@
 			children = (
 				7A0B050472661547FBDA8A0A /* MovieEditorApp.swift */,
 				F526AAAD9C2FEBCC950ED535 /* Models */,
-				1E4C07AD277A7E1100D62E84 /* Obective C */,
 				1E0C4CD627786DBF00FD2EC4 /* Sources */,
 				1E0C4CD527786D9A00FD2EC4 /* Views */,
 				1E58873B244C59E2003C2430 /* Assets.xcassets */,
@@ -223,7 +208,6 @@
 				1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */,
 				DA85AF4F2F16654F00670D97 /* AudioTapProcessor.swift in Sources */,
 				1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */,
-				1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */,
 				1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -386,7 +370,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = AmericoDev.MoviePlayer;
 				PRODUCT_NAME = "Americo's Movie Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Obective C/Movie Editor-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
@@ -420,7 +403,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = AmericoDev.MoviePlayer;
 				PRODUCT_NAME = "Americo's Movie Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/$(PROJECT_NAME)/Obective C/Movie Editor-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
