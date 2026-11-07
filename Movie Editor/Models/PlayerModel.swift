@@ -1,4 +1,4 @@
-//
+    //
 //  PlayerModel.swift
 //  Movie Editor
 //
@@ -145,9 +145,12 @@ final class PlayerModel {
 
         var sourceAudioTrack: AVAssetTrack?
         var audioInfo: MediaInfo.AudioInfo?
-        if let audioURL {
+        // The track is only valid while its asset is alive; inserting it into the composition
+        // after the asset is released fails with AVFoundation error -11800 (-12780).
+        let audioAsset = audioURL.map { AVURLAsset(url: $0, options: Self.assetOptions) }
+        defer { withExtendedLifetime(audioAsset) {} }
+        if let audioURL, let audioAsset {
             folderToSave = audioURL.deletingLastPathComponent()
-            let audioAsset = AVURLAsset(url: audioURL, options: Self.assetOptions)
             sourceAudioTrack = try? await audioAsset.loadTracks(withMediaType: .audio).first
             guard let track = sourceAudioTrack else {
                 showError("No audio track found", audioURL.lastPathComponent)

@@ -24,13 +24,13 @@ struct TransportBar: View {
 
                 Spacer()
 
-                transportButton("backward.end.fill", help: "Go to start") { player.seekToStart() }
-                transportButton("backward.fill", help: "Rewind") { player.fastBackward() }
-                transportButton("backward.frame.fill", help: "Previous frame") { player.stepBackward() }
-                transportButton(player.isPlaying ? "pause.fill" : "play.fill", help: player.isPlaying ? "Pause" : "Play") { player.playPause() }
-                transportButton("forward.frame.fill", help: "Next frame") { player.stepForward() }
-                transportButton("forward.fill", help: "Fast forward") { player.fastForward() }
-                transportButton("forward.end.fill", help: "Go to end") { player.seekToEnd() }
+                transportButton("backward.end.fill", help: "Go to start (↩)", key: .return) { player.seekToStart() }
+                transportButton("backward.fill", help: "Rewind (⌘←)", key: .leftArrow, modifiers: .command) { player.fastBackward() }
+                transportButton("backward.frame.fill", help: "Previous frame (←)", key: .leftArrow) { player.stepBackward() }
+                transportButton(player.isPlaying ? "pause.fill" : "play.fill", help: player.isPlaying ? "Pause (Space)" : "Play (Space)", key: .space) { player.playPause() }
+                transportButton("forward.frame.fill", help: "Next frame (→)", key: .rightArrow) { player.stepForward() }
+                transportButton("forward.fill", help: "Fast forward (⌘→)", key: .rightArrow, modifiers: .command) { player.fastForward() }
+                transportButton("forward.end.fill", help: "Go to end (⌘↩)", key: .return, modifiers: .command) { player.seekToEnd() }
 
                 Spacer()
 
@@ -53,11 +53,12 @@ struct TransportBar: View {
         }
     }
 
-    private func transportButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+    private func transportButton(_ symbol: String, help: String, key: KeyEquivalent, modifiers: EventModifiers = [], action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .frame(width: 22)
         }
+        .keyboardShortcut(key, modifiers: modifiers)
         .help(help)
         .disabled(!player.isLoaded)
     }
