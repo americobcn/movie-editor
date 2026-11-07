@@ -49,7 +49,6 @@ final class PlayerModel {
     var alert: AlertItem?
     /// Set when a loaded file is an `hev1`-tagged HEVC movie; the view asks whether to fix the tag.
     var hev1Candidate: URL?
-    var exportPreset = "AVAssetExportPresetHighestQuality"
 
     var mediaInfo: String {
         guard let audioInfoText else { return videoInfoText }
@@ -405,14 +404,24 @@ final class PlayerModel {
         }
     }
 
-    // MARK: - Save / Export
+    // MARK: - Open / Save / Export
+    func presentOpenPanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.movie, .audiovisualContent, .video]
+        panel.message = "Select a movie"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await loadMovie(url: url) }
+    }
+
     func presentSavePanel(export: Bool) {
         guard isLoaded, let sourceURL else { return }
         let panel = NSSavePanel()
         panel.directoryURL = folderToSave
         if export {
-            let codec = ExportSettingsPanelController.VideoCodec.allCases.first { $0.codecDescription == exportPreset }
-            panel.message = "Export to \(codec?.rawValue ?? exportPreset)."
+            panel.message = "Export to \(ExportCodec.current.rawValue)."
         } else {
             panel.message = "Save as a new file without transcoding video, audio: AAC, 320kbs."
         }
@@ -444,7 +453,7 @@ final class PlayerModel {
 
     private func exportMovie(to toURL: URL) async {
         guard let asset = player.currentItem?.asset,
-              let session = AVAssetExportSession(asset: asset, presetName: exportPreset) else { return }
+              let session = AVAssetExportSession(asset: asset, presetName: ExportCodec.current.preset) else { return }
         let outURL = toURL.deletingPathExtension().appendingPathExtension("mov")
         isExporting = true
         defer { isExporting = false }
