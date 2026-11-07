@@ -58,11 +58,14 @@ class MediaExporter {
         )
         
         // Setup audio processing (if available)
-        let audioConfig = try? await setupAudioProcessing(
-            audioTrack: audioTrack!,
-            assetReader: assetReader,
-            assetWriter: assetWriter
-        )
+        var audioConfig: MediaProcessingConfig?
+        if let audioTrack = audioTrack {
+            audioConfig = try? await setupAudioProcessing(
+                audioTrack: audioTrack,
+                assetReader: assetReader,
+                assetWriter: assetWriter
+            )
+        }
         
         // Start processing
         assetWriter.startWriting()
