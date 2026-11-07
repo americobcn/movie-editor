@@ -428,9 +428,20 @@ final class PlayerModel {
         } else {
             panel.message = "Save as a new file without transcoding video, audio: AAC, 320kbs."
         }
-        panel.allowedContentTypes = [.movie, .audiovisualContent, .video]
+        // With the source type as the only allowed type the panel appends the original extension
+        // when none is typed, and its "replace?" check covers the final file name.
+        panel.allowedContentTypes = [UTType(filenameExtension: sourceURL.pathExtension) ?? .movie]
+        panel.allowsOtherFileTypes = true
         panel.nameFieldStringValue = sourceURL.lastPathComponent
         guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+        // Never overwrite the movie that is being played
+        if destination.standardizedFileURL == sourceURL.standardizedFileURL {
+            showError("Choose a different file name", "The destination is the movie that is currently open.")
+            return
+        }
+        // The panel already confirmed the replacement; the writers refuse to overwrite
+        try? FileManager.default.removeItem(at: destination)
 
         Task {
             if export {
@@ -457,13 +468,28 @@ final class PlayerModel {
     private func exportMovie(to toURL: URL) async {
         guard let asset = player.currentItem?.asset,
               let session = AVAssetExportSession(asset: asset, presetName: ExportCodec.current.preset) else { return }
-        let outURL = toURL.deletingPathExtension().appendingPathExtension("mov")
+
+        // Container follows the file extension; anything the preset can't write becomes .mov
+        let containers: [String: AVFileType] = ["mov": .mov, "mp4": .mp4, "m4v": .m4v]
+        var outURL = toURL
+        if outURL.pathExtension.isEmpty {
+            outURL.appendPathExtension(sourceURL?.pathExtension ?? "mov")
+        }
+        var fileType = containers[outURL.pathExtension.lowercased()] ?? .mov
+        let compatible = await withCheckedContinuation { continuation in
+            session.determineCompatibleFileTypes { continuation.resume(returning: $0) }
+        }
+        if containers[outURL.pathExtension.lowercased()] == nil || !compatible.contains(fileType) {
+            fileType = .mov
+            outURL = outURL.deletingPathExtension().appendingPathExtension("mov")
+        }
+
         isExporting = true
         defer { isExporting = false }
         do {
-            try await session.export(to: outURL, as: .mov)
+            try await session.export(to: outURL, as: fileType)
         } catch {
-            showError("Export failed", "Error: \(error.localizedDescription)\nCheck if filename is already taken.\nTry adding the extension file type(.mov).")
+            showError("Export failed", "Error: \(error.localizedDescription)\nCheck if the file name is already taken.")
         }
     }
 
