@@ -26,7 +26,7 @@ struct ContentView: View {
             TransportBar(player: player)
 
             HStack(alignment: .top, spacing: 12) {
-                GroupBox("Movie info") {
+                GroupBox() {
                     Text(player.mediaInfo)
                         .font(.system(.caption, design: .monospaced))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
