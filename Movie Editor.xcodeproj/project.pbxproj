@@ -7,30 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1E090442259FB5EC004F8026 /* MeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E090441259FB5EC004F8026 /* MeterView.swift */; };
-		1E0CD0A2245611BD00F5E559 /* ACTVerticalSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */; };
-		1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E173257244C9F2800E7EB08 /* PlayerView.swift */; };
 		1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */; };
-		1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E384B542784A33300FF9243 /* SpectrumBarView.swift */; };
-		1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4822732455F1230012C4D6 /* ACTSliderCell.swift */; };
 		1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */; };
 		1E58873A244C59E0003C2430 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E588739244C59E0003C2430 /* AppDelegate.swift */; };
 		1E58873C244C59E2003C2430 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E58873B244C59E2003C2430 /* Assets.xcassets */; };
 		1E58873F244C59E2003C2430 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 1E58873D244C59E2003C2430 /* MainMenu.xib */; };
-		1E588748244C5A0A003C2430 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E588747244C5A0A003C2430 /* MainViewController.swift */; };
 		1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */; };
 		1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC568AB2EF9D902002D2724 /* TagEditor.swift */; };
 		1EDDCACD245C633700D88F3B /* ExportSettingsPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */; };
 		DA85AF4F2F16654F00670D97 /* AudioTapProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA85AF4E2F16654600670D97 /* AudioTapProcessor.swift */; };
+		1B1136EEE6CDDCA6339266EC /* MediaInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F5B3DD519B64CC12E21882 /* MediaInfo.swift */; };
+		3979E5F3FF62954824776272 /* MeterModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A334417CE60828CFAE4CE0 /* MeterModel.swift */; };
+		E44BF77B58C014B9AAB0C5F7 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3521D92C22AEEC9A3D9F4577 /* PlayerModel.swift */; };
+		2CA38E0568902ECEC8A19DEA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A6925936E4DD228C3AC3362 /* ContentView.swift */; };
+		48636146806297D07B6FCD68 /* VideoSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919B4C566BE1FC959380A0B9 /* VideoSurface.swift */; };
+		8B3527016654829E8A895401 /* TransportBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22109888A299EC10F85D8D48 /* TransportBar.swift */; };
+		38FE0AFA15DCC0C3394AAC33 /* SpectrumView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8180CB8B792F4296EB83A641 /* SpectrumView.swift */; };
+		6442D1DF6142C12F288FECCA /* LevelMetersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1E090441259FB5EC004F8026 /* MeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterView.swift; sourceTree = "<group>"; };
-		1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTVerticalSliderCell.swift; sourceTree = "<group>"; };
-		1E173257244C9F2800E7EB08 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		1E353AAA2EFDD35F0013B024 /* FFTAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFTAnalyzer.swift; sourceTree = "<group>"; };
-		1E384B542784A33300FF9243 /* SpectrumBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumBarView.swift; sourceTree = "<group>"; };
-		1E4822732455F1230012C4D6 /* ACTSliderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACTSliderCell.swift; sourceTree = "<group>"; };
 		1E48DC1A244F2D2800D72F2E /* Movie Editor-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Movie Editor-Bridging-Header.h"; sourceTree = "<group>"; };
 		1E48DC1B244F2D2900D72F2E /* DictionaryKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DictionaryKey.m; sourceTree = "<group>"; };
 		1E48DC1C244F2D2900D72F2E /* DictionaryKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DictionaryKey.h; sourceTree = "<group>"; };
@@ -40,11 +37,18 @@
 		1E58873E244C59E2003C2430 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		1E588740244C59E2003C2430 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1E588741244C59E2003C2430 /* Movie_Editor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Movie_Editor.entitlements; sourceTree = "<group>"; };
-		1E588747244C5A0A003C2430 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		1EBF7E7A2EF08EE200567508 /* MediaExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaExporter.swift; sourceTree = "<group>"; };
 		1EC568AB2EF9D902002D2724 /* TagEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEditor.swift; sourceTree = "<group>"; };
 		1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSettingsPanelController.swift; sourceTree = "<group>"; };
 		DA85AF4E2F16654600670D97 /* AudioTapProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTapProcessor.swift; sourceTree = "<group>"; };
+		72F5B3DD519B64CC12E21882 /* MediaInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaInfo.swift; sourceTree = "<group>"; };
+		E3A334417CE60828CFAE4CE0 /* MeterModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterModel.swift; sourceTree = "<group>"; };
+		3521D92C22AEEC9A3D9F4577 /* PlayerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerModel.swift; sourceTree = "<group>"; };
+		9A6925936E4DD228C3AC3362 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		919B4C566BE1FC959380A0B9 /* VideoSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSurface.swift; sourceTree = "<group>"; };
+		22109888A299EC10F85D8D48 /* TransportBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportBar.swift; sourceTree = "<group>"; };
+		8180CB8B792F4296EB83A641 /* SpectrumView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumView.swift; sourceTree = "<group>"; };
+		78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelMetersView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,11 +65,11 @@
 		1E0C4CD527786D9A00FD2EC4 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				1E4822732455F1230012C4D6 /* ACTSliderCell.swift */,
-				1E0CD0A1245611BD00F5E559 /* ACTVerticalSliderCell.swift */,
-				1E173257244C9F2800E7EB08 /* PlayerView.swift */,
-				1E090441259FB5EC004F8026 /* MeterView.swift */,
-				1E384B542784A33300FF9243 /* SpectrumBarView.swift */,
+				78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */,
+				8180CB8B792F4296EB83A641 /* SpectrumView.swift */,
+				22109888A299EC10F85D8D48 /* TransportBar.swift */,
+				919B4C566BE1FC959380A0B9 /* VideoSurface.swift */,
+				9A6925936E4DD228C3AC3362 /* ContentView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -110,6 +114,7 @@
 		1E588738244C59E0003C2430 /* Movie Editor */ = {
 			isa = PBXGroup;
 			children = (
+				F526AAAD9C2FEBCC950ED535 /* Models */,
 				1E4C07AD277A7E1100D62E84 /* Obective C */,
 				1E0C4CD627786DBF00FD2EC4 /* Sources */,
 				1E0C4CD527786D9A00FD2EC4 /* Views */,
@@ -126,10 +131,19 @@
 		1EDDCACE245C633D00D88F3B /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
-				1E588747244C5A0A003C2430 /* MainViewController.swift */,
 				1EDDCACC245C633700D88F3B /* ExportSettingsPanelController.swift */,
 			);
 			path = Controllers;
+			sourceTree = "<group>";
+		};
+		F526AAAD9C2FEBCC950ED535 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				3521D92C22AEEC9A3D9F4577 /* PlayerModel.swift */,
+				E3A334417CE60828CFAE4CE0 /* MeterModel.swift */,
+				72F5B3DD519B64CC12E21882 /* MediaInfo.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -204,18 +218,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6442D1DF6142C12F288FECCA /* LevelMetersView.swift in Sources */,
+				38FE0AFA15DCC0C3394AAC33 /* SpectrumView.swift in Sources */,
+				8B3527016654829E8A895401 /* TransportBar.swift in Sources */,
+				48636146806297D07B6FCD68 /* VideoSurface.swift in Sources */,
+				2CA38E0568902ECEC8A19DEA /* ContentView.swift in Sources */,
+				E44BF77B58C014B9AAB0C5F7 /* PlayerModel.swift in Sources */,
+				3979E5F3FF62954824776272 /* MeterModel.swift in Sources */,
+				1B1136EEE6CDDCA6339266EC /* MediaInfo.swift in Sources */,
 				1EBF7E7B2EF08EE800567508 /* MediaExporter.swift in Sources */,
 				DA85AF4F2F16654F00670D97 /* AudioTapProcessor.swift in Sources */,
 				1E353AAB2EFDD3670013B024 /* FFTAnalyzer.swift in Sources */,
-				1E384B552784A33300FF9243 /* SpectrumBarView.swift in Sources */,
-				1E173258244C9F2800E7EB08 /* PlayerView.swift in Sources */,
 				1E48DC1D244F2D2900D72F2E /* DictionaryKey.m in Sources */,
 				1E58873A244C59E0003C2430 /* AppDelegate.swift in Sources */,
-				1E0CD0A2245611BD00F5E559 /* ACTVerticalSliderCell.swift in Sources */,
-				1E588748244C5A0A003C2430 /* MainViewController.swift in Sources */,
 				1EC568AC2EF9D902002D2724 /* TagEditor.swift in Sources */,
-				1E090442259FB5EC004F8026 /* MeterView.swift in Sources */,
-				1E4822742455F1230012C4D6 /* ACTSliderCell.swift in Sources */,
 				1EDDCACD245C633700D88F3B /* ExportSettingsPanelController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

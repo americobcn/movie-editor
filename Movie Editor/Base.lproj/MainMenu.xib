@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="24506" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
-        <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24506"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -15,6 +14,7 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="Americo_s_Movie_Player" customModuleProvider="target">
             <connections>
+                <outlet property="espc" destination="ioj-Lk-eMn" id="8dH-zj-9vM"/>
                 <outlet property="window" destination="QvC-M9-y7g" id="gIp-Ho-8D9"/>
             </connections>
         </customObject>
@@ -71,7 +71,7 @@
                         <items>
                             <menuItem title="Open…" keyEquivalent="o" id="IAo-SY-fd9">
                                 <connections>
-                                    <action selector="loadMovie:" target="CxU-bW-Hba" id="Ekc-1e-7ZC"/>
+                                    <action selector="loadMovie:" target="Voe-Tx-rLC" id="Ekc-1e-7ZC"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Open Recent" id="tXI-mr-wws">
@@ -90,19 +90,19 @@
                             <menuItem isSeparatorItem="YES" id="m54-Is-iLE"/>
                             <menuItem title="Close" keyEquivalent="w" id="DVo-aG-piG">
                                 <connections>
-                                    <action selector="clearInterface:" target="CxU-bW-Hba" id="UiC-LP-nTY"/>
+                                    <action selector="clearInterface:" target="Voe-Tx-rLC" id="UiC-LP-nTY"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="aJh-i4-bef"/>
                             <menuItem title="Save" tag="1" keyEquivalent="s" id="pxx-59-PXV">
                                 <connections>
-                                    <action selector="saveFile:" target="CxU-bW-Hba" id="JlV-gl-cyN"/>
+                                    <action selector="saveFile:" target="Voe-Tx-rLC" id="JlV-gl-cyN"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="hMA-Ba-4AX"/>
                             <menuItem title="Export" tag="2" keyEquivalent="e" id="Was-JA-tGl">
                                 <connections>
-                                    <action selector="saveFile:" target="CxU-bW-Hba" id="CiM-E4-rxZ"/>
+                                    <action selector="saveFile:" target="Voe-Tx-rLC" id="CiM-E4-rxZ"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Set Export Settings" tag="2" id="dOf-NI-c7j">
@@ -141,7 +141,7 @@
                             <menuItem isSeparatorItem="YES" id="WRV-NI-Exz"/>
                             <menuItem title="Remove Audio Track" keyEquivalent="r" id="pa3-QI-u2k">
                                 <connections>
-                                    <action selector="removeAudioFromMovie:" target="CxU-bW-Hba" id="vSA-qu-vEm"/>
+                                    <action selector="removeAudioFromMovie:" target="Voe-Tx-rLC" id="vSA-qu-vEm"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="uyl-h8-XO2"/>
@@ -164,217 +164,16 @@
             <point key="canvasLocation" x="-643" y="315"/>
         </menu>
         <window title="Movie Editor" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" appearanceType="darkAqua" animationBehavior="default" id="QvC-M9-y7g">
-            <windowStyleMask key="styleMask" titled="YES"/>
+            <windowStyleMask key="styleMask" titled="YES" resizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="543" y="326" width="896" height="731"/>
             <rect key="screenRect" x="0.0" y="0.0" width="1920" height="1055"/>
             <view key="contentView" wantsLayer="YES" id="EiT-Mj-1SZ">
                 <rect key="frame" x="0.0" y="0.0" width="896" height="731"/>
                 <autoresizingMask key="autoresizingMask"/>
-                <subviews>
-                    <customView identifier="playerView" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="0hI-WP-zMJ" customClass="PlayerView" customModule="Americo_s_Movie_Player" customModuleProvider="target">
-                        <rect key="frame" x="0.0" y="227" width="896" height="504"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" heightSizable="YES"/>
-                    </customView>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="c0W-HP-U2c">
-                        <rect key="frame" x="423" y="164" width="50" height="23"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <shadow key="shadow" blurRadius="5">
-                            <size key="offset" width="1" height="1"/>
-                            <color key="color" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        </shadow>
-                        <buttonCell key="cell" type="roundTextured" title="Play" bezelStyle="texturedRounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" id="8yb-9Q-gmG">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="14" name="Monaco"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-IA
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="playPauseVideo:" target="CxU-bW-Hba" id="okC-On-vzw"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="t2H-Ai-gWQ">
-                        <rect key="frame" x="259" y="165" width="33" height="21"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="bevel" title="[" bezelStyle="rounded" alignment="center" state="on" imageScaling="proportionallyDown" inset="2" id="Vki-aQ-Tho">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="16" name="Monaco"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-DQ
-</string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="seekToBegining:" target="CxU-bW-Hba" id="agB-gA-GiE"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="MaH-oj-pJo">
-                        <rect key="frame" x="607" y="165" width="33" height="21"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="bevel" title="]" bezelStyle="rounded" alignment="center" imageScaling="proportionallyDown" inset="2" id="j4A-Ke-HSK">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="16" name="Monaco"/>
-                            <string key="keyEquivalent" base64-UTF8="YES">
-DQ
-</string>
-                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                        </buttonCell>
-                        <connections>
-                            <action selector="seekToEnd:" target="CxU-bW-Hba" id="5bN-mw-XTI"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="GB1-QJ-FFA">
-                        <rect key="frame" x="500" y="166" width="40" height="22"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <shadow key="shadow" blurRadius="5">
-                            <size key="offset" width="1" height="1"/>
-                            <color key="color" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        </shadow>
-                        <buttonCell key="cell" type="roundTextured" title="&gt;" bezelStyle="texturedRounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" id="Hlc-yH-7IC">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="17" name="Monaco"/>
-                            <string key="keyEquivalent"></string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="seekForeward:" target="CxU-bW-Hba" id="pjw-0h-5ZM"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Sob-4Z-Xjh">
-                        <rect key="frame" x="357" y="166" width="40" height="22"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <shadow key="shadow" blurRadius="5">
-                            <size key="offset" width="1" height="1"/>
-                            <color key="color" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        </shadow>
-                        <buttonCell key="cell" type="roundTextured" title="&lt;" bezelStyle="texturedRounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" id="id7-ZN-4zM">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="17" name="Monaco"/>
-                            <string key="keyEquivalent"></string>
-                        </buttonCell>
-                        <connections>
-                            <action selector="seekBackward:" target="CxU-bW-Hba" id="3B9-AL-V9H"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="trW-vW-ANC">
-                        <rect key="frame" x="293" y="166" width="40" height="22"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <shadow key="shadow" blurRadius="5">
-                            <size key="offset" width="1" height="1"/>
-                            <color key="color" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        </shadow>
-                        <buttonCell key="cell" type="roundTextured" title="&lt;&lt;" bezelStyle="texturedRounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" id="76t-Zx-Qp4">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="17" name="Monaco"/>
-                            <string key="keyEquivalent"></string>
-                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                        </buttonCell>
-                        <connections>
-                            <action selector="playFastbackWard:" target="CxU-bW-Hba" id="WeU-tC-6Tb"/>
-                        </connections>
-                    </button>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="6bk-mO-w1N">
-                        <rect key="frame" x="563" y="166" width="40" height="22"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <shadow key="shadow" blurRadius="5">
-                            <size key="offset" width="1" height="1"/>
-                            <color key="color" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                        </shadow>
-                        <buttonCell key="cell" type="roundTextured" title="&gt;&gt;" bezelStyle="texturedRounded" alignment="center" controlSize="small" lineBreakMode="truncatingTail" state="on" imageScaling="proportionallyDown" inset="2" id="fol-Dj-6iN">
-                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" size="17" name="Monaco"/>
-                            <string key="keyEquivalent"></string>
-                            <modifierMask key="keyEquivalentModifierMask" command="YES"/>
-                        </buttonCell>
-                        <connections>
-                            <action selector="playFastForward:" target="CxU-bW-Hba" id="B3T-mT-9w4"/>
-                        </connections>
-                    </button>
-                    <slider verticalHuggingPriority="750" fixedFrame="YES" alphaValue="0.80000000000000004" translatesAutoresizingMaskIntoConstraints="NO" id="3ux-tz-vpK">
-                        <rect key="frame" x="20" y="204" width="856" height="13"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="100" tickMarkPosition="above" sliderType="linear" id="cCw-jz-F7g" customClass="ACTSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
-                        <connections>
-                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieCurrentTime" id="gq0-sb-u1U"/>
-                        </connections>
-                    </slider>
-                    <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="dIx-gX-vHA">
-                        <rect key="frame" x="700" y="160" width="125" height="28"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" enabled="NO" allowsUndo="NO" borderStyle="border" alignment="center" title="00:00:00:00" id="qMm-fC-zC3">
-                            <font key="font" size="17" name="Monaco"/>
-                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="O2F-8P-rXT">
-                        <rect key="frame" x="18" y="137" width="89" height="15"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                        <textFieldCell key="cell" lineBreakMode="clipping" title="Movie info" id="424-qY-HRu">
-                            <font key="font" size="12" name="Monaco"/>
-                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" textCompletion="NO" translatesAutoresizingMaskIntoConstraints="NO" id="AIz-X0-55J">
-                        <rect key="frame" x="20" y="20" width="221" height="109"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" allowsUndo="NO" alignment="left" id="lCX-Tm-Hbh">
-                            <font key="font" size="10" name="Monaco"/>
-                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
-                    <progressIndicator wantsLayer="YES" fixedFrame="YES" maxValue="100" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="YNU-Rb-vs8">
-                        <rect key="frame" x="22" y="170" width="16" height="16"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    </progressIndicator>
-                    <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2nr-Iy-QdM">
-                        <rect key="frame" x="700" y="20" width="125" height="132"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    </customView>
-                    <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="6vT-dS-BSV">
-                        <rect key="frame" x="837" y="159" width="37" height="30"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" image="NSTouchBarAudioOutputVolumeHighTemplate" imagePosition="overlaps" alignment="center" alternateImage="NSTouchBarAudioOutputMuteTemplate" lineBreakMode="truncatingTail" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="rVa-wI-iHN">
-                            <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>
-                            <font key="font" metaFont="system"/>
-                        </buttonCell>
-                        <connections>
-                            <action selector="muteAudio:" target="CxU-bW-Hba" id="fRQ-LV-UjC"/>
-                        </connections>
-                    </button>
-                    <customView fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="rcD-zD-Mfj">
-                        <rect key="frame" x="248" y="20" width="400" height="132"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    </customView>
-                    <slider horizontalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yW3-lc-I2l">
-                        <rect key="frame" x="849" y="18" width="13" height="136"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
-                        <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" maxValue="1" doubleValue="1" tickMarkPosition="left" sliderType="linear" id="0sw-cN-6l5" customClass="ACTVerticalSliderCell" customModule="Americo_s_Movie_Player" customModuleProvider="target"/>
-                        <connections>
-                            <binding destination="CxU-bW-Hba" name="value" keyPath="movieVolume" id="R7x-lw-Yji"/>
-                        </connections>
-                    </slider>
-                </subviews>
             </view>
             <point key="canvasLocation" x="-643" y="-126.5"/>
         </window>
-        <viewController id="CxU-bW-Hba" customClass="MainViewController" customModule="Americo_s_Movie_Player" customModuleProvider="target">
-            <connections>
-                <outlet property="espc" destination="ioj-Lk-eMn" id="8dH-zj-9vM"/>
-                <outlet property="mainSpectrumViewMeters" destination="rcD-zD-Mfj" id="7de-ks-jON"/>
-                <outlet property="mainViewMeters" destination="2nr-Iy-QdM" id="XAJ-hl-pfj"/>
-                <outlet property="movieInfoDisplay" destination="AIz-X0-55J" id="hiQ-XH-d6u"/>
-                <outlet property="movieTime" destination="dIx-gX-vHA" id="XNt-yx-5QT"/>
-                <outlet property="muteButton" destination="6vT-dS-BSV" id="yki-9B-al3"/>
-                <outlet property="playPauseBtn" destination="c0W-HP-U2c" id="lhB-nd-JsC"/>
-                <outlet property="playerView" destination="0hI-WP-zMJ" id="5yY-Kj-m0N"/>
-                <outlet property="progressIndicator" destination="YNU-Rb-vs8" id="r5s-xD-dcF"/>
-                <outlet property="scrubSlider" destination="3ux-tz-vpK" id="xAm-XX-R0N"/>
-                <outlet property="view" destination="0hI-WP-zMJ" id="6vH-xt-Djv"/>
-                <outlet property="volumeSlider" destination="yW3-lc-I2l" id="uOq-6l-PyV"/>
-            </connections>
-        </viewController>
         <viewController id="ioj-Lk-eMn" customClass="ExportSettingsPanelController" customModule="Americo_s_Movie_Player" customModuleProvider="target">
             <connections>
                 <outlet property="codecExportPopup" destination="BKg-93-YY2" id="gCd-UB-hkQ"/>
@@ -391,7 +190,7 @@ DQ
                 <rect key="frame" x="0.0" y="0.0" width="186" height="175"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="7oq-m5-D4J">
+                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="7oq-m5-D4J">
                         <rect key="frame" x="18" y="139" width="110" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" lineBreakMode="clipping" title="Export Settings" id="roL-Tw-AQm">
@@ -412,7 +211,7 @@ DQ
                             <action selector="codecSetAction:" target="ioj-Lk-eMn" id="4mW-2x-yhe"/>
                         </connections>
                     </popUpButton>
-                    <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="wRV-Yq-Ngj">
+                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="wRV-Yq-Ngj">
                         <rect key="frame" x="18" y="105" width="134" height="16"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" lineBreakMode="clipping" title="Codec" id="nin-Ad-QON">
@@ -437,8 +236,4 @@ DQ
             <point key="canvasLocation" x="122" y="211.5"/>
         </window>
     </objects>
-    <resources>
-        <image name="NSTouchBarAudioOutputMuteTemplate" width="17" height="19"/>
-        <image name="NSTouchBarAudioOutputVolumeHighTemplate" width="26" height="18"/>
-    </resources>
 </document>

@@ -6,7 +6,7 @@
 //  Copyright © 2020 Américo Cot Toloza. All rights reserved.
 //
 
-protocol ExportSettingsPanelControllerDelegate: class {
+@MainActor protocol ExportSettingsPanelControllerDelegate: AnyObject {
     func exportPresetDidChange(_ preset: String)
 }
 

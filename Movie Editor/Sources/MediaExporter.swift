@@ -14,13 +14,6 @@ class MediaExporter {
     // MARK: - Properties
     private var assetReader: AVAssetReader?
     private var assetWriter: AVAssetWriter?
-    private var progressIndicator: NSProgressIndicator
-    
-    
-    // MARK: - Initialization
-    init(progressIndicator: NSProgressIndicator) {
-        self.progressIndicator = progressIndicator
-    }
     
     
     // MARK: - Main Export Function
@@ -265,13 +258,8 @@ class MediaExporter {
             return
         }
         
-        assetWriter.finishWriting { [weak self] in
-            guard let self = self else { return }
-            
+        assetWriter.finishWriting {
             DispatchQueue.main.async {
-                self.progressIndicator.stopAnimation(nil)
-                self.progressIndicator.alphaValue = 0.0
-                
                 switch assetWriter.status {
                 case .completed:
                     print("✅ Media export completed successfully")
