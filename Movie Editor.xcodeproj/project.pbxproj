@@ -22,6 +22,7 @@
 		6442D1DF6142C12F288FECCA /* LevelMetersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */; };
 		293D21B8B449C02C7E784BBD /* ExportCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE421E058FEC659E51219BBC /* ExportCodec.swift */; };
 		75F0FB8086523D98FFF2A90D /* ExportSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6103214262AEA64B5AA6F3E /* ExportSettingsView.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* LineSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* LineSlider.swift */; };
 		C046EBC99F0B21EEBE5D90C9 /* MovieEditorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B050472661547FBDA8A0A /* MovieEditorApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -44,6 +45,7 @@
 		78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelMetersView.swift; sourceTree = "<group>"; };
 		CE421E058FEC659E51219BBC /* ExportCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportCodec.swift; sourceTree = "<group>"; };
 		E6103214262AEA64B5AA6F3E /* ExportSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSettingsView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* LineSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineSlider.swift; sourceTree = "<group>"; };
 		7A0B050472661547FBDA8A0A /* MovieEditorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/MovieEditorApp.swift; name = MovieEditorApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -62,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				E6103214262AEA64B5AA6F3E /* ExportSettingsView.swift */,
+				A1B2C3D4E5F60718293A4B5D /* LineSlider.swift */,
 				78BA3C8AD8997ECE1F1439B8 /* LevelMetersView.swift */,
 				8180CB8B792F4296EB83A641 /* SpectrumView.swift */,
 				22109888A299EC10F85D8D48 /* TransportBar.swift */,
@@ -196,6 +199,7 @@
 			files = (
 				C046EBC99F0B21EEBE5D90C9 /* MovieEditorApp.swift in Sources */,
 				75F0FB8086523D98FFF2A90D /* ExportSettingsView.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* LineSlider.swift in Sources */,
 				293D21B8B449C02C7E784BBD /* ExportCodec.swift in Sources */,
 				6442D1DF6142C12F288FECCA /* LevelMetersView.swift in Sources */,
 				38FE0AFA15DCC0C3394AAC33 /* SpectrumView.swift in Sources */,

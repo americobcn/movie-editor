@@ -10,9 +10,9 @@ struct TransportBar: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Slider(
+            LineSlider(
                 value: Binding(get: { player.currentTime }, set: { player.scrub(to: $0) }),
-                in: 0...max(player.duration, 0.001)
+                range: 0...max(player.duration, 0.001)
             )
             .disabled(!player.isLoaded)
 
@@ -46,7 +46,7 @@ struct TransportBar: View {
                 .help(player.isMuted ? "Unmute" : "Mute")
                 .disabled(!player.isLoaded)
 
-                Slider(value: $player.volume, in: 0...1)
+                LineSlider(value: $player.volume)
                     .frame(width: 90)
                     .disabled(!player.isLoaded)
             }
