@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Model Routing
+
+Before spawning any subagent, load the `claude-model-router` skill and set the subagent's model from
+its routing table. Never switch the main session's model mid-task.
+
+## SKILLS
+
+- Use swiftui-pro skill for UI
+- Use swift-concurrency for concurrency
+
 ## Build & Run
 
 This is a macOS Xcode project. All building and testing is done via Xcode or `xcodebuild`.
@@ -75,3 +85,4 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+

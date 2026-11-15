@@ -29,16 +29,26 @@ struct ContentView: View {
                 GroupBox() {
                     Text(player.mediaInfo)
                         .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 2)
+                        .padding(.vertical, 1)
+                        .foregroundColor(.green.opacity(0.9))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .textSelection(.enabled)
                 }
                 .frame(width: 230)
-
+                .background(Color.black)
+                .cornerRadius(6)
+                
                 SpectrumView(meters: player.meters)
                 LevelMetersView(meters: player.meters)
                     .frame(width: 125)
+                
+                LineSlider(value: $player.volume, axis: .vertical)
+                    .disabled(!player.isLoaded)
+                    .frame(width: 30)
+                    
             }
-            .frame(height: 140)
+            .frame(height: 160)
             .alert("Do you want to load a copy with the correct file tag?", isPresented: hev1Binding) {
                 Button("Save") { player.fixHev1Tag() }
                 Button("Cancel", role: .cancel) { player.hev1Candidate = nil }

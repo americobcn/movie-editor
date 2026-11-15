@@ -16,39 +16,42 @@ struct TransportBar: View {
             )
             .disabled(!player.isLoaded)
 
-            HStack(spacing: 8) {
-                ProgressView()
-                    .controlSize(.small)
-                    .opacity(player.isExporting ? 1 : 0)
-                    .frame(width: 24)
-
-                Spacer()
-
-                transportButton("backward.end.fill", help: "Go to start (↩)", key: .return) { player.seekToStart() }
-                transportButton("backward.fill", help: "Rewind (⌘←)", key: .leftArrow, modifiers: .command) { player.fastBackward() }
-                transportButton("backward.frame.fill", help: "Previous frame (←)", key: .leftArrow) { player.stepBackward() }
-                transportButton(player.isPlaying ? "pause.fill" : "play.fill", help: player.isPlaying ? "Pause (Space)" : "Play (Space)", key: .space) { player.playPause() }
-                transportButton("forward.frame.fill", help: "Next frame (→)", key: .rightArrow) { player.stepForward() }
-                transportButton("forward.fill", help: "Fast forward (⌘→)", key: .rightArrow, modifiers: .command) { player.fastForward() }
-                transportButton("forward.end.fill", help: "Go to end (⌘↩)", key: .return, modifiers: .command) { player.seekToEnd() }
-
-                Spacer()
-
+            HStack(spacing: 5) {
+                
                 Text(player.timecode)
-                    .font(.system(.title3, design: .monospaced))
-
+                    .disabled(!player.isLoaded)
+                    .font(.system(.title2, design: .monospaced))
+                    .accessibility(identifier: "Current time")
+                    .foregroundStyle(player.isLoaded ? .green : .gray)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 6)) // Fondo agrupado
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    transportButton("backward.end.fill", help: "Go to start (↩)", key: .return) { player.seekToStart() }
+                    transportButton("backward.fill", help: "Rewind (⌘←)", key: .leftArrow, modifiers: .command) { player.fastBackward() }
+                    transportButton("backward.frame.fill", help: "Previous frame (←)", key: .leftArrow) { player.stepBackward() }
+                    transportButton(player.isPlaying ? "pause.fill" : "play.fill", help: player.isPlaying ? "Pause (Space)" : "Play (Space)", key: .space) { player.playPause() }
+                    transportButton("forward.frame.fill", help: "Next frame (→)", key: .rightArrow) { player.stepForward() }
+                    transportButton("forward.fill", help: "Fast forward (⌘→)", key: .rightArrow, modifiers: .command) { player.fastForward() }
+                    transportButton("forward.end.fill", help: "Go to end (⌘↩)", key: .return, modifiers: .command) { player.seekToEnd() }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(.gray.opacity(0.2), in: RoundedRectangle(cornerRadius: 6))
+                                                
+                Spacer()
+                
                 Button {
                     player.toggleMute()
                 } label: {
                     Image(systemName: player.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .frame(width: 20)
+                        .frame(width: 10)
                 }
                 .help(player.isMuted ? "Unmute" : "Mute")
                 .disabled(!player.isLoaded)
-
-                LineSlider(value: $player.volume)
-                    .frame(width: 90)
-                    .disabled(!player.isLoaded)
             }
         }
     }
@@ -56,8 +59,9 @@ struct TransportBar: View {
     private func transportButton(_ symbol: String, help: String, key: KeyEquivalent, modifiers: EventModifiers = [], action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .frame(width: 22)
+                .frame(width: 30)
         }
+        .foregroundStyle(player.isLoaded ? .primary : .secondary)
         .keyboardShortcut(key, modifiers: modifiers)
         .help(help)
         .disabled(!player.isLoaded)
